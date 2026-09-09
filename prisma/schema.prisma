@@ -1,0 +1,412 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         String    // "STUDENT" | "ACADEMICIAN" | "INDUSTRY" | "ADMIN"
+  name         String
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  studentProfile     StudentProfile?
+  academicianProfile AcademicianProfile?
+  industryProfile    IndustryProfile?
+  uploadedFiles      UploadedFile[]
+}
+
+model Institution {
+  id           String               @id @default(uuid())
+  name         String
+  code         String               @unique
+  address      String?
+  website      String?
+  contactEmail String?
+  isVerified   Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+
+  departments  Department[]
+  students     StudentProfile[]
+  academicians AcademicianProfile[]
+}
+
+model Department {
+  id            String               @id @default(uuid())
+  institutionId String
+  name          String
+  code          String
+  createdAt     DateTime             @default(now())
+
+  institution   Institution          @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  students      StudentProfile[]
+  academicians  AcademicianProfile[]
+
+  @@unique([institutionId, code])
+}
+
+model StudentProfile {
+  id                   String                   @id @default(uuid())
+  userId               String                   @unique
+  institutionId        String
+  departmentId         String
+  registerNumber       String                   @unique
+  batchYear            Int
+  semester             Int                      @default(1)
+  cgpa                 Float                    @default(0.0)
+  bio                  String?
+  phone                String?
+  linkedinUrl          String?
+  githubUrl            String?
+  portfolioUrl         String?
+  resumeFileId         String?
+  careerReadinessScore Float                    @default(0.0)
+  targetRoleId         String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution          Institution              @relation(fields: [institutionId], references: [id])
+  department           Department               @relation(fields: [departmentId], references: [id])
+  targetRole           JobRole?                 @relation(fields: [targetRoleId], references: [id])
+  resumeFile           UploadedFile?            @relation("StudentResume", fields: [resumeFileId], references: [id])
+
+  skills               StudentSkill[]
+  achievements         StudentAchievement[]
+  projects             StudentProject[]
+  internships          StudentInternship[]
+  certifications       StudentCertification[]
+  assessmentResults    StudentAssessmentResult[]
+  applications         Application[]
+  feedbacks            AcademicianFeedback[]
+  gapSnapshots         StudentSkillGapSnapshot[]
+}
+
+model AcademicianProfile {
+  id             String                @id @default(uuid())
+  userId         String                @unique
+  institutionId  String
+  departmentId   String
+  designation    String
+  employeeId     String
+  specialization String?
+  createdAt      DateTime              @default(now())
+
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution    Institution           @relation(fields: [institutionId], references: [id])
+  department     Department            @relation(fields: [departmentId], references: [id])
+
+  feedbacksGiven AcademicianFeedback[]
+  verifiedSkills StudentSkill[]        @relation("AcademicianVerifiedSkill")
+}
+
+model IndustryProfile {
+  id           String            @id @default(uuid())
+  userId       String            @unique
+  companyName  String
+  industryType String
+  companySize  String?
+  website      String?
+  location     String?
+  description  String?
+  logoUrl      String?
+  isVerified   Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postings     IndustryPosting[]
+}
+
+model Skill {
+  id           String                   @id @default(uuid())
+  name         String                   @unique
+  slug         String                   @unique
+  category     String                   // "TECHNICAL" | "SOFT" | "APTITUDE" | "DOMAIN"
+  description  String?
+  isVerified   Boolean                  @default(true)
+  createdAt    DateTime                 @default(now())
+
+  studentSkills        StudentSkill[]
+  roleRequirements     RoleSkillRequirement[]
+  postingRequirements  PostingSkillRequirement[]
+  assessments          SkillAssessment[]
+  learningResources    LearningResource[]
+}
+
+model StudentSkill {
+  id                String              @id @default(uuid())
+  studentId         String
+  skillId           String
+  proficiencyLevel  String              // "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT"
+  yearsOfExperience Float               @default(0.5)
+  isVerified        Boolean             @default(false)
+  verifiedById      String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  student           StudentProfile      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skill             Skill               @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  verifiedBy        AcademicianProfile? @relation("AcademicianVerifiedSkill", fields: [verifiedById], references: [id])
+
+  @@unique([studentId, skillId])
+}
+
+model JobRole {
+  id                 String                   @id @default(uuid())
+  title              String                   @unique
+  slug               String                   @unique
+  category           String                   // "Software Development", "Data & AI", "Cloud & DevOps", etc.
+  description        String
+  minExperienceYears Float                    @default(0)
+  icon               String?
+  createdAt          DateTime                 @default(now())
+
+  requirements       RoleSkillRequirement[]
+  interestedStudents StudentProfile[]
+  projectIdeas       RecommendedProjectIdea[]
+  gapSnapshots       StudentSkillGapSnapshot[]
+}
+
+model RoleSkillRequirement {
+  id             String   @id @default(uuid())
+  jobRoleId      String
+  skillId        String
+  importance     String   // "MANDATORY" | "PREFERRED" | "BONUS"
+  minProficiency String   // "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT"
+  weight         Float    @default(1.0)
+
+  jobRole        JobRole  @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+  skill          Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([jobRoleId, skillId])
+}
+
+model IndustryPosting {
+  id              String                    @id @default(uuid())
+  industryId      String
+  type            String                    // "JOB" | "INTERNSHIP"
+  title           String
+  description     String
+  location        String
+  locationType    String                    // "REMOTE" | "HYBRID" | "ONSITE"
+  stipendOrSalary String?
+  vacancies       Int                       @default(1)
+  deadline        DateTime?
+  status          String                    @default("OPEN") // "DRAFT" | "OPEN" | "CLOSED"
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  industry        IndustryProfile           @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  requirements    PostingSkillRequirement[]
+  applications    Application[]
+}
+
+model PostingSkillRequirement {
+  id             String          @id @default(uuid())
+  postingId      String
+  skillId        String
+  importance     String          // "MANDATORY" | "PREFERRED" | "BONUS"
+  minProficiency String          // "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT"
+
+  posting        IndustryPosting @relation(fields: [postingId], references: [id], onDelete: Cascade)
+  skill          Skill           @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([postingId, skillId])
+}
+
+model Application {
+  id          String          @id @default(uuid())
+  postingId   String
+  studentId   String
+  status      String          @default("APPLIED") // "APPLIED" | "SHORTLISTED" | "INTERVIEWING" | "OFFERED" | "REJECTED"
+  coverLetter String?
+  appliedAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  posting     IndustryPosting @relation(fields: [postingId], references: [id], onDelete: Cascade)
+  student     StudentProfile  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([postingId, studentId])
+}
+
+model StudentProject {
+  id          String         @id @default(uuid())
+  studentId   String
+  title       String
+  description String
+  role        String?
+  repoUrl     String?
+  liveUrl     String?
+  skillsUsed  String         // Comma-separated or JSON list of skills
+  startDate   DateTime?
+  endDate     DateTime?
+  isOngoing   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model StudentCertification {
+  id            String         @id @default(uuid())
+  studentId     String
+  title         String
+  issuingOrg    String
+  issueDate     DateTime
+  expiryDate    DateTime?
+  credentialId  String?
+  credentialUrl String?
+  fileId        String?
+  isVerified    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+
+  student       StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  file          UploadedFile?  @relation(fields: [fileId], references: [id])
+}
+
+model StudentInternship {
+  id                 String         @id @default(uuid())
+  studentId          String
+  companyName        String
+  role               String
+  location           String?
+  startDate          DateTime
+  endDate            DateTime?
+  isCurrent          Boolean        @default(false)
+  description        String?
+  certificateFileId  String?
+  isVerified         Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+
+  student            StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  certificateFile    UploadedFile?  @relation(fields: [certificateFileId], references: [id])
+}
+
+model StudentAchievement {
+  id                  String         @id @default(uuid())
+  studentId           String
+  eventName           String
+  eventType           String         // "HACKATHON" | "CODING_COMPETITION" | "PAPER_PRESENTATION" | "PROJECT_EXPO" | "OTHER"
+  organization        String         // College / Hosting Organization
+  eventDate           DateTime
+  participationStatus String         // "PARTICIPANT" | "FINALIST" | "RUNNER_UP" | "WINNER"
+  prizeDetails        String?        // e.g. "1st Place Gold Trophy"
+  prizeAmount         Float?         // e.g. 25000.00
+  skillsUsed          String         // Comma-separated skills
+  description         String
+  certificateFileId   String?
+  proofPhotoFileId    String?
+  isVerified          Boolean        @default(false)
+  createdAt           DateTime       @default(now())
+
+  student             StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  certificateFile     UploadedFile?  @relation("AchievementCertificate", fields: [certificateFileId], references: [id])
+  proofPhotoFile      UploadedFile?  @relation("AchievementProofPhoto", fields: [proofPhotoFileId], references: [id])
+}
+
+model SkillAssessment {
+  id            String                    @id @default(uuid())
+  title         String
+  skillId       String
+  totalMarks    Int                       @default(100)
+  passingMarks  Int                       @default(60)
+  questionsJson String                    // JSON array of questions, options, correct answer
+  createdAt     DateTime                  @default(now())
+
+  skill         Skill                     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  results       StudentAssessmentResult[]
+}
+
+model StudentAssessmentResult {
+  id           String          @id @default(uuid())
+  studentId    String
+  assessmentId String
+  score        Int
+  percentage   Float
+  passed       Boolean
+  takenAt      DateTime        @default(now())
+
+  student      StudentProfile  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assessment   SkillAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+}
+
+model LearningResource {
+  id              String   @id @default(uuid())
+  title           String
+  provider        String   // "Coursera", "NPTEL", "FreeCodeCamp", "YouTube", "Docs"
+  url             String
+  skillId         String
+  type            String   // "COURSE" | "TUTORIAL" | "DOCS" | "BOOK"
+  durationHours   Int?
+  difficultyLevel String   // "BEGINNER" | "INTERMEDIATE" | "ADVANCED"
+  createdAt       DateTime @default(now())
+
+  skill           Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+}
+
+model RecommendedProjectIdea {
+  id              String   @id @default(uuid())
+  title           String
+  description     String
+  targetRoleId    String
+  keySkills       String   // Comma-separated skills
+  difficultyLevel String   // "BEGINNER" | "INTERMEDIATE" | "ADVANCED"
+  createdAt       DateTime @default(now())
+
+  targetRole      JobRole  @relation(fields: [targetRoleId], references: [id], onDelete: Cascade)
+}
+
+model UploadedFile {
+  id               String                 @id @default(uuid())
+  uploaderUserId   String
+  originalFilename String
+  storedFilename   String
+  fileType         String                 // "RESUME" | "CERTIFICATE" | "ACHIEVEMENT_PHOTO" | "AVATAR"
+  mimeType         String
+  fileSize         Int
+  storagePath      String
+  isPublic         Boolean                @default(false)
+  createdAt        DateTime               @default(now())
+
+  uploader         User                   @relation(fields: [uploaderUserId], references: [id], onDelete: Cascade)
+  resumeStudents   StudentProfile[]       @relation("StudentResume")
+  certifications   StudentCertification[]
+  internships      StudentInternship[]
+  achievementCerts StudentAchievement[]   @relation("AchievementCertificate")
+  achievementPics  StudentAchievement[]   @relation("AchievementProofPhoto")
+}
+
+model AcademicianFeedback {
+  id            String             @id @default(uuid())
+  academicianId String
+  studentId     String
+  category      String             // "ACADEMIC" | "SKILL_DEVELOPMENT" | "CAREER_GUIDANCE"
+  comments      String
+  rating        Int                @default(5)
+  createdAt     DateTime           @default(now())
+
+  academician   AcademicianProfile @relation(fields: [academicianId], references: [id], onDelete: Cascade)
+  student       StudentProfile     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model StudentSkillGapSnapshot {
+  id                 String         @id @default(uuid())
+  studentId          String
+  targetRoleId       String
+  matchPercentage    Float
+  missingSkillsJson  String         // JSON array of missing skills with importance & priority
+  matchedSkillsJson  String         // JSON array of matched skills with proficiency comparison
+  readinessScore     Float
+  calculatedAt       DateTime       @default(now())
+
+  student            StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  targetRole         JobRole        @relation(fields: [targetRoleId], references: [id], onDelete: Cascade)
+}
