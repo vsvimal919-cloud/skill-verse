@@ -260,8 +260,10 @@ async function main() {
   for (const res of resources) {
     const skillId = skillMap.get(res.slug);
     if (skillId) {
-      await prisma.learningResource.create({
-        data: {
+      await prisma.learningResource.upsert({
+        where: { url: res.url },
+        update: {},
+        create: {
           title: res.title,
           provider: res.provider,
           url: res.url,
@@ -276,6 +278,7 @@ async function main() {
 
   // 5. Recommended Project Ideas
   await prisma.recommendedProjectIdea.createMany({
+    skipDuplicates: true,
     data: [
       {
         title: "E-Commerce Customer Churn & Cohort Analysis Dashboard",
@@ -362,51 +365,56 @@ async function main() {
     include: { industryProfile: true },
   });
 
-  // Create Industry Job & Internship Postings
+  // Create Industry Job & Internship Postings (skip if already seeded)
   if (industryUser.industryProfile) {
-    const jobPosting = await prisma.industryPosting.create({
-      data: {
-        industryId: industryUser.industryProfile.id,
-        type: "JOB",
-        title: "Junior Data Analyst",
-        description: "Join our Business Intelligence squad to analyze cross-platform enterprise datasets, build executive dashboards, and translate business questions into quantitative insights.",
-        location: "Bangalore (Hybrid)",
-        locationType: "HYBRID",
-        stipendOrSalary: "₹ 6.5 LPA - ₹ 8.5 LPA",
-        vacancies: 3,
-        status: "OPEN",
-      },
+    const existingPostings = await prisma.industryPosting.count({
+      where: { industryId: industryUser.industryProfile.id },
     });
 
-    // Tag requirements to job
-    const pythonId = skillMap.get("python");
-    const sqlId = skillMap.get("sql");
-    const powerBiId = skillMap.get("power-bi");
-    const excelId = skillMap.get("excel");
+    if (existingPostings === 0) {
+      const jobPosting = await prisma.industryPosting.create({
+        data: {
+          industryId: industryUser.industryProfile.id,
+          type: "JOB",
+          title: "Junior Data Analyst",
+          description: "Join our Business Intelligence squad to analyze cross-platform enterprise datasets, build executive dashboards, and translate business questions into quantitative insights.",
+          location: "Bangalore (Hybrid)",
+          locationType: "HYBRID",
+          stipendOrSalary: "₹ 6.5 LPA - ₹ 8.5 LPA",
+          vacancies: 3,
+          status: "OPEN",
+        },
+      });
 
-    if (pythonId) await prisma.postingSkillRequirement.create({ data: { postingId: jobPosting.id, skillId: pythonId, importance: "MANDATORY", minProficiency: "INTERMEDIATE" } });
-    if (sqlId) await prisma.postingSkillRequirement.create({ data: { postingId: jobPosting.id, skillId: sqlId, importance: "MANDATORY", minProficiency: "ADVANCED" } });
-    if (powerBiId) await prisma.postingSkillRequirement.create({ data: { postingId: jobPosting.id, skillId: powerBiId, importance: "PREFERRED", minProficiency: "INTERMEDIATE" } });
-    if (excelId) await prisma.postingSkillRequirement.create({ data: { postingId: jobPosting.id, skillId: excelId, importance: "MANDATORY", minProficiency: "ADVANCED" } });
+      const pythonId = skillMap.get("python");
+      const sqlId = skillMap.get("sql");
+      const powerBiId = skillMap.get("power-bi");
+      const excelId = skillMap.get("excel");
 
-    const internshipPosting = await prisma.industryPosting.create({
-      data: {
-        industryId: industryUser.industryProfile.id,
-        type: "INTERNSHIP",
-        title: "Full-Stack Engineering Intern",
-        description: "Work directly with Senior Engineers to build customer-facing web apps with React, TypeScript, and Node.js.",
-        location: "Remote",
-        locationType: "REMOTE",
-        stipendOrSalary: "₹ 25,000 / month",
-        vacancies: 2,
-        status: "OPEN",
-      },
-    });
+      if (pythonId) await prisma.postingSkillRequirement.create({ data: { postingId: jobPosting.id, skillId: pythonId, importance: "MANDATORY", minProficiency: "INTERMEDIATE" } });
+      if (sqlId) await prisma.postingSkillRequirement.create({ data: { postingId: jobPosting.id, skillId: sqlId, importance: "MANDATORY", minProficiency: "ADVANCED" } });
+      if (powerBiId) await prisma.postingSkillRequirement.create({ data: { postingId: jobPosting.id, skillId: powerBiId, importance: "PREFERRED", minProficiency: "INTERMEDIATE" } });
+      if (excelId) await prisma.postingSkillRequirement.create({ data: { postingId: jobPosting.id, skillId: excelId, importance: "MANDATORY", minProficiency: "ADVANCED" } });
 
-    const jsId = skillMap.get("javascript");
-    const reactId = skillMap.get("react");
-    if (jsId) await prisma.postingSkillRequirement.create({ data: { postingId: internshipPosting.id, skillId: jsId, importance: "MANDATORY", minProficiency: "INTERMEDIATE" } });
-    if (reactId) await prisma.postingSkillRequirement.create({ data: { postingId: internshipPosting.id, skillId: reactId, importance: "MANDATORY", minProficiency: "INTERMEDIATE" } });
+      const internshipPosting = await prisma.industryPosting.create({
+        data: {
+          industryId: industryUser.industryProfile.id,
+          type: "INTERNSHIP",
+          title: "Full-Stack Engineering Intern",
+          description: "Work directly with Senior Engineers to build customer-facing web apps with React, TypeScript, and Node.js.",
+          location: "Remote",
+          locationType: "REMOTE",
+          stipendOrSalary: "₹ 25,000 / month",
+          vacancies: 2,
+          status: "OPEN",
+        },
+      });
+
+      const jsId = skillMap.get("javascript");
+      const reactId = skillMap.get("react");
+      if (jsId) await prisma.postingSkillRequirement.create({ data: { postingId: internshipPosting.id, skillId: jsId, importance: "MANDATORY", minProficiency: "INTERMEDIATE" } });
+      if (reactId) await prisma.postingSkillRequirement.create({ data: { postingId: internshipPosting.id, skillId: reactId, importance: "MANDATORY", minProficiency: "INTERMEDIATE" } });
+    }
   }
 
   // Student (Matches user's explicit prompt example: Student skills: Python, SQL, HTML; Target role: Data Analyst)
@@ -446,8 +454,10 @@ async function main() {
     const htmlId = skillMap.get("html-css");
 
     if (pythonId) {
-      await prisma.studentSkill.create({
-        data: {
+      await prisma.studentSkill.upsert({
+        where: { studentId_skillId: { studentId, skillId: pythonId } },
+        update: {},
+        create: {
           studentId,
           skillId: pythonId,
           proficiencyLevel: "INTERMEDIATE",
@@ -459,8 +469,10 @@ async function main() {
     }
 
     if (sqlId) {
-      await prisma.studentSkill.create({
-        data: {
+      await prisma.studentSkill.upsert({
+        where: { studentId_skillId: { studentId, skillId: sqlId } },
+        update: {},
+        create: {
           studentId,
           skillId: sqlId,
           proficiencyLevel: "ADVANCED",
@@ -472,8 +484,10 @@ async function main() {
     }
 
     if (htmlId) {
-      await prisma.studentSkill.create({
-        data: {
+      await prisma.studentSkill.upsert({
+        where: { studentId_skillId: { studentId, skillId: htmlId } },
+        update: {},
+        create: {
           studentId,
           skillId: htmlId,
           proficiencyLevel: "ADVANCED",
@@ -483,79 +497,93 @@ async function main() {
       });
     }
 
-    // Seed Alex's Hackathon Achievement (demonstrating user's requested achievement schema)
-    await prisma.studentAchievement.create({
-      data: {
-        studentId,
-        eventName: "Smart India Hackathon 2025 (State Finals)",
-        eventType: "HACKATHON",
-        organization: "Ministry of Education & AICTE",
-        eventDate: new Date("2025-11-15"),
-        participationStatus: "WINNER",
-        prizeDetails: "1st Prize Gold Trophy & Certificate of Excellence",
-        prizeAmount: 50000.0,
-        skillsUsed: "Python, SQL, FastApi, Machine Learning",
-        description: "Built an AI-driven automated grievance categorization and priority triage system for municipal corporations, reducing citizen turnaround time by 60%.",
-        isVerified: true,
-      },
-    });
-
-    await prisma.studentAchievement.create({
-      data: {
-        studentId,
-        eventName: "CodeStorm 24-Hour National Collegiate Hackathon",
-        eventType: "CODING_COMPETITION",
-        organization: "IIT Madras TechFest",
-        eventDate: new Date("2026-02-10"),
-        participationStatus: "RUNNER_UP",
-        prizeDetails: "2nd Prize Cash Award & Memento",
-        prizeAmount: 25000.0,
-        skillsUsed: "React, Node.js, Python, PostgreSQL",
-        description: "Developed a distributed carbon footprint tracker for urban logistics fleets with real-time route optimization.",
-        isVerified: true,
-      },
-    });
-
-    // Seed Student Project
-    await prisma.studentProject.create({
-      data: {
-        studentId,
-        title: "FinTrack: Automated Financial Transaction Classifier",
-        description: "Full-stack personal finance tracker parsing bank statements with Python, storing normalized records in SQL, and providing interactive spending charts.",
-        role: "Lead Developer",
-        repoUrl: "https://github.com/alexkumar-dev/fintrack",
-        liveUrl: "https://fintrack-demo.example.com",
-        skillsUsed: "Python, SQL, HTML & CSS, JavaScript",
-        isOngoing: false,
-      },
-    });
-
-    // Seed Student Internship
-    await prisma.studentInternship.create({
-      data: {
-        studentId,
-        companyName: "DataMetrics Labs",
-        role: "Data Engineering Intern",
-        location: "Bangalore",
-        startDate: new Date("2025-06-01"),
-        endDate: new Date("2025-08-31"),
-        isCurrent: false,
-        description: "Automated daily ETL pipelines for customer churn ingestion using Python scripts and SQL views, reducing ETL lag by 45%.",
-        isVerified: true,
-      },
-    });
-
-    // Seed Faculty Mentorship Feedback
-    if (facultyUser.academicianProfile) {
-      await prisma.academicianFeedback.create({
+    // Seed Alex's Achievements (skip if already seeded)
+    const existingAchievements = await prisma.studentAchievement.count({ where: { studentId } });
+    if (existingAchievements === 0) {
+      await prisma.studentAchievement.create({
         data: {
-          academicianId: facultyUser.academicianProfile.id,
           studentId,
-          category: "SKILL_DEVELOPMENT",
-          comments: "Alex demonstrates outstanding command over Python and relational SQL. To become fully industry-ready for top-tier Data Analyst roles, focus on mastering Power BI dashboard storytelling and advanced Excel statistical functions.",
-          rating: 5,
+          eventName: "Smart India Hackathon 2025 (State Finals)",
+          eventType: "HACKATHON",
+          organization: "Ministry of Education & AICTE",
+          eventDate: new Date("2025-11-15"),
+          participationStatus: "WINNER",
+          prizeDetails: "1st Prize Gold Trophy & Certificate of Excellence",
+          prizeAmount: 50000.0,
+          skillsUsed: "Python, SQL, FastApi, Machine Learning",
+          description: "Built an AI-driven automated grievance categorization and priority triage system for municipal corporations, reducing citizen turnaround time by 60%.",
+          isVerified: true,
         },
       });
+
+      await prisma.studentAchievement.create({
+        data: {
+          studentId,
+          eventName: "CodeStorm 24-Hour National Collegiate Hackathon",
+          eventType: "CODING_COMPETITION",
+          organization: "IIT Madras TechFest",
+          eventDate: new Date("2026-02-10"),
+          participationStatus: "RUNNER_UP",
+          prizeDetails: "2nd Prize Cash Award & Memento",
+          prizeAmount: 25000.0,
+          skillsUsed: "React, Node.js, Python, PostgreSQL",
+          description: "Developed a distributed carbon footprint tracker for urban logistics fleets with real-time route optimization.",
+          isVerified: true,
+        },
+      });
+    }
+
+    // Seed Student Project (skip if already seeded)
+    const existingProjects = await prisma.studentProject.count({ where: { studentId } });
+    if (existingProjects === 0) {
+      await prisma.studentProject.create({
+        data: {
+          studentId,
+          title: "FinTrack: Automated Financial Transaction Classifier",
+          description: "Full-stack personal finance tracker parsing bank statements with Python, storing normalized records in SQL, and providing interactive spending charts.",
+          role: "Lead Developer",
+          repoUrl: "https://github.com/alexkumar-dev/fintrack",
+          liveUrl: "https://fintrack-demo.example.com",
+          skillsUsed: "Python, SQL, HTML & CSS, JavaScript",
+          isOngoing: false,
+        },
+      });
+    }
+
+    // Seed Student Internship (skip if already seeded)
+    const existingInternships = await prisma.studentInternship.count({ where: { studentId } });
+    if (existingInternships === 0) {
+      await prisma.studentInternship.create({
+        data: {
+          studentId,
+          companyName: "DataMetrics Labs",
+          role: "Data Engineering Intern",
+          location: "Bangalore",
+          startDate: new Date("2025-06-01"),
+          endDate: new Date("2025-08-31"),
+          isCurrent: false,
+          description: "Automated daily ETL pipelines for customer churn ingestion using Python scripts and SQL views, reducing ETL lag by 45%.",
+          isVerified: true,
+        },
+      });
+    }
+
+    // Seed Faculty Mentorship Feedback (skip if already seeded)
+    if (facultyUser.academicianProfile) {
+      const existingFeedback = await prisma.academicianFeedback.count({
+        where: { academicianId: facultyUser.academicianProfile.id, studentId },
+      });
+      if (existingFeedback === 0) {
+        await prisma.academicianFeedback.create({
+          data: {
+            academicianId: facultyUser.academicianProfile.id,
+            studentId,
+            category: "SKILL_DEVELOPMENT",
+            comments: "Alex demonstrates outstanding command over Python and relational SQL. To become fully industry-ready for top-tier Data Analyst roles, focus on mastering Power BI dashboard storytelling and advanced Excel statistical functions.",
+            rating: 5,
+          },
+        });
+      }
     }
   }
 
