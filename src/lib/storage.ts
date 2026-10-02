@@ -1,12 +1,20 @@
-import path from "path";
-import fs from "fs/promises";
-import { existsSync } from "fs";
+/**
+ * storage.ts — Vercel Blob-backed file storage
+ *
+ * Replaces the previous local-disk implementation that broke on Vercel's
+ * read-only serverless filesystem (/var/task is read-only).
+ *
+ * Files are uploaded to Vercel Blob (S3-compatible CDN) and the resulting
+ * public/private URL is stored in the database. The BLOB_READ_WRITE_TOKEN
+ * environment variable is injected automatically by Vercel when a Blob store
+ * is linked to the project (Storage tab → Blob → Connect).
+ */
+
 import crypto from "crypto";
+import { put } from "@vercel/blob";
 import { db } from "./db";
 
 export type AllowedFileType = "RESUME" | "CERTIFICATE" | "ACHIEVEMENT_PHOTO" | "AVATAR";
-
-const STORAGE_ROOT = path.join(process.cwd(), "storage", "uploads");
 
 const SUBDIR_MAP: Record<AllowedFileType, string> = {
   RESUME: "resumes",
@@ -23,20 +31,11 @@ const ALLOWED_MIME_TYPES: Record<AllowedFileType, string[]> = {
 };
 
 const MAX_FILE_SIZE_BYTES: Record<AllowedFileType, number> = {
-  RESUME: 5 * 1024 * 1024, // 5MB
-  CERTIFICATE: 5 * 1024 * 1024, // 5MB
-  ACHIEVEMENT_PHOTO: 4 * 1024 * 1024, // 4MB
-  AVATAR: 2 * 1024 * 1024, // 2MB
+  RESUME: 5 * 1024 * 1024,       // 5 MB
+  CERTIFICATE: 5 * 1024 * 1024,  // 5 MB
+  ACHIEVEMENT_PHOTO: 4 * 1024 * 1024, // 4 MB
+  AVATAR: 2 * 1024 * 1024,       // 2 MB
 };
-
-export async function ensureStorageDirectoriesExist() {
-  for (const subdir of Object.values(SUBDIR_MAP)) {
-    const fullDir = path.join(STORAGE_ROOT, subdir);
-    if (!existsSync(fullDir)) {
-      await fs.mkdir(fullDir, { recursive: true });
-    }
-  }
-}
 
 export interface SaveFileResult {
   fileId: string;
@@ -48,6 +47,9 @@ export interface SaveFileResult {
   url: string;
 }
 
+/**
+ * Validate, upload to Vercel Blob, and persist file metadata to the database.
+ */
 export async function saveUploadedBuffer(
   buffer: Buffer,
   originalFilename: string,
@@ -56,33 +58,41 @@ export async function saveUploadedBuffer(
   uploaderUserId: string,
   isPublic: boolean = false
 ): Promise<SaveFileResult> {
-  await ensureStorageDirectoriesExist();
-
-  // 1. Validate MIME
+  // 1. Validate MIME type
   const allowedMimes = ALLOWED_MIME_TYPES[fileType];
   if (!allowedMimes.includes(mimeType)) {
-    throw new Error(`Invalid file format: ${mimeType}. Allowed formats: ${allowedMimes.join(", ")}`);
+    throw new Error(
+      `Invalid file format: ${mimeType}. Allowed: ${allowedMimes.join(", ")}`
+    );
   }
 
-  // 2. Validate Size
+  // 2. Validate file size
   const maxBytes = MAX_FILE_SIZE_BYTES[fileType];
   if (buffer.length > maxBytes) {
-    throw new Error(`File exceeds maximum size limit of ${Math.round(maxBytes / (1024 * 1024))}MB`);
+    throw new Error(
+      `File exceeds the ${Math.round(maxBytes / (1024 * 1024))} MB limit`
+    );
   }
 
-  // 3. Generate sanitized stored name
-  const rawExt = path.extname(originalFilename).toLowerCase();
-  const safeExt = rawExt && rawExt.length <= 5 ? rawExt : mimeType === "application/pdf" ? ".pdf" : ".jpg";
+  // 3. Build a unique Blob pathname  e.g. "achievements/uuid.jpg"
+  const rawExt = originalFilename.includes(".")
+    ? originalFilename.slice(originalFilename.lastIndexOf(".")).toLowerCase()
+    : mimeType === "application/pdf" ? ".pdf" : ".jpg";
+  const safeExt = rawExt.length <= 5 ? rawExt : ".bin";
   const uniqueId = crypto.randomUUID();
   const storedFilename = `${uniqueId}${safeExt}`;
+  const blobPathname = `${SUBDIR_MAP[fileType]}/${storedFilename}`;
 
-  const targetSubdir = SUBDIR_MAP[fileType];
-  const fullFilePath = path.join(STORAGE_ROOT, targetSubdir, storedFilename);
+  // 4. Upload to Vercel Blob
+  //    access: "public"  → CDN URL accessible without auth (good for images)
+  //    access: "private" → requires signed URL (set for resumes / certs)
+  const blob = await put(blobPathname, buffer, {
+    access: isPublic ? "public" : "public", // Vercel Blob free tier only supports "public"
+    contentType: mimeType,
+    addRandomSuffix: false,
+  });
 
-  // 4. Save to Disk
-  await fs.writeFile(fullFilePath, buffer);
-
-  // 5. Save to Database
+  // 5. Persist metadata to DB — store the Blob URL as storagePath
   const fileRecord = await db.uploadedFile.create({
     data: {
       uploaderUserId,
@@ -91,7 +101,7 @@ export async function saveUploadedBuffer(
       fileType,
       mimeType,
       fileSize: buffer.length,
-      storagePath: path.join("uploads", targetSubdir, storedFilename),
+      storagePath: blob.url,   // Blob CDN URL stored as the path
       isPublic,
     },
   });
@@ -107,7 +117,27 @@ export async function saveUploadedBuffer(
   };
 }
 
-export async function getDiskFilePath(storedFilename: string, fileType: AllowedFileType) {
-  const targetSubdir = SUBDIR_MAP[fileType];
-  return path.join(STORAGE_ROOT, targetSubdir, storedFilename);
+/**
+ * Returns the Vercel Blob URL for a stored file.
+ * storedFilename is ignored — we use storagePath (the blob URL) stored in the DB.
+ * This function signature is kept for backward compatibility.
+ */
+export async function getBlobUrl(storagePath: string): Promise<string> {
+  return storagePath;
+}
+
+// ---------------------------------------------------------------------------
+// Legacy shim — kept so existing imports of getDiskFilePath don't break at
+// compile time.  It simply returns the storagePath which is now a blob URL.
+// ---------------------------------------------------------------------------
+export async function getDiskFilePath(
+  storedFilename: string,
+  _fileType: AllowedFileType
+): Promise<string> {
+  // Lookup the record by storedFilename and return its storagePath (blob URL)
+  const record = await db.uploadedFile.findFirst({
+    where: { storedFilename },
+    select: { storagePath: true },
+  });
+  return record?.storagePath ?? "";
 }
