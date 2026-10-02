@@ -260,19 +260,20 @@ async function main() {
   for (const res of resources) {
     const skillId = skillMap.get(res.slug);
     if (skillId) {
-      await prisma.learningResource.upsert({
-        where: { url: res.url },
-        update: {},
-        create: {
-          title: res.title,
-          provider: res.provider,
-          url: res.url,
-          skillId,
-          type: res.type,
-          durationHours: res.durationHours,
-          difficultyLevel: res.difficultyLevel,
-        },
-      });
+      const existing = await prisma.learningResource.findFirst({ where: { url: res.url } });
+      if (!existing) {
+        await prisma.learningResource.create({
+          data: {
+            title: res.title,
+            provider: res.provider,
+            url: res.url,
+            skillId,
+            type: res.type,
+            durationHours: res.durationHours,
+            difficultyLevel: res.difficultyLevel,
+          },
+        });
+      }
     }
   }
 
