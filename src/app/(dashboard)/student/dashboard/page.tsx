@@ -88,11 +88,18 @@ export default function StudentDashboard() {
 
             <div className="flex flex-wrap items-center gap-3">
               <Link
-                href="/student/skill-gap"
+                href="/student/assessment"
                 className="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-blue-700 shadow-md hover:bg-blue-50 transition flex items-center gap-2"
               >
+                <Code2 className="h-4 w-4" />
+                Live Coding Assessment
+              </Link>
+              <Link
+                href="/student/skill-gap"
+                className="rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur hover:bg-white/25 transition flex items-center gap-2"
+              >
                 <BarChart3 className="h-4 w-4" />
-                Analyze Skill Gap
+                Skill Gap
               </Link>
               {profile?.id && (
                 <Link
@@ -100,7 +107,7 @@ export default function StudentDashboard() {
                   target="_blank"
                   className="rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur hover:bg-white/25 transition flex items-center gap-2"
                 >
-                  View Digital Portfolio
+                  Portfolio
                   <ExternalLink className="h-4 w-4" />
                 </Link>
               )}
@@ -354,6 +361,17 @@ export default function StudentDashboard() {
                     Live Skill Gap Engine
                   </span>
                   <ArrowRight className="h-4 w-4 text-slate-400" />
+                </Link>
+
+                <Link
+                  href="/student/assessment"
+                  className="flex items-center justify-between p-3 rounded-xl border border-blue-200/80 bg-blue-50/50 hover:bg-blue-100/60 transition text-sm font-bold text-blue-900 shadow-sm"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Sparkles className="h-4 w-4 text-blue-600" />
+                    Diagnostic Coding Playground
+                  </span>
+                  <ArrowRight className="h-4 w-4 text-blue-600" />
                 </Link>
               </div>
             </div>

@@ -105,6 +105,16 @@ export function Navbar({ user }: NavbarProps) {
                   >
                     Skill Gap Analysis
                   </Link>
+                  <Link
+                    href="/student/assessment"
+                    className={`rounded-lg px-3 py-1.5 transition ${
+                      pathname === "/student/assessment"
+                        ? "bg-blue-50 text-blue-700 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                  >
+                    Coding Assessment
+                  </Link>
                   {user.profileId && (
                     <Link
                       href={`/portfolio/${user.profileId}`}
