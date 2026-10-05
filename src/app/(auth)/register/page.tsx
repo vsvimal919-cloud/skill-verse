@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { GraduationCap, ArrowRight, UserCheck, Briefcase, School } from "lucide-react";
+import { GraduationCap, ArrowRight, UserCheck, Briefcase, School, Building2, User } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -13,6 +13,11 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+
+  // Department & Mentor options
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [selectedMentorId, setSelectedMentorId] = useState("");
 
   // Student specific
   const [registerNumber, setRegisterNumber] = useState("");
@@ -33,6 +38,28 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    async function fetchDepartments() {
+      try {
+        const res = await fetch("/api/departments");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.departments)) {
+          setDepartments(data.departments);
+          if (data.departments.length > 0) {
+            setSelectedDepartmentId(data.departments[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load departments:", err);
+      }
+    }
+    fetchDepartments();
+  }, []);
+
+  // Filter mentors based on selected department
+  const currentDepartment = departments.find((d) => d.id === selectedDepartmentId);
+  const availableMentors = currentDepartment?.faculty || [];
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -48,11 +75,14 @@ export default function RegisterPage() {
       };
 
       if (role === "STUDENT") {
+        payload.departmentId = selectedDepartmentId;
+        payload.mentorId = selectedMentorId || null;
         payload.registerNumber = registerNumber;
         payload.batchYear = batchYear;
         payload.semester = semester;
         payload.cgpa = cgpa;
       } else if (role === "ACADEMICIAN") {
+        payload.departmentId = selectedDepartmentId;
         payload.designation = designation;
         payload.employeeId = employeeId;
         payload.specialization = specialization;
@@ -210,6 +240,57 @@ export default function RegisterPage() {
             {/* Role-Specific Fields */}
             {role === "STUDENT" && (
               <div className="pt-2 border-t border-slate-100 space-y-4">
+                {/* Department Selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Academic Department <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={selectedDepartmentId}
+                      onChange={(e) => {
+                        setSelectedDepartmentId(e.target.value);
+                        setSelectedMentorId(""); // Reset mentor when department changes
+                      }}
+                      className="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm text-slate-900 bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map((dept) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name} ({dept.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Mentor Selection */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Faculty Mentor / Advisor
+                    </label>
+                    <select
+                      value={selectedMentorId}
+                      onChange={(e) => setSelectedMentorId(e.target.value)}
+                      disabled={!selectedDepartmentId}
+                      className="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm text-slate-900 bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <option value="">
+                        {selectedDepartmentId
+                          ? availableMentors.length > 0
+                            ? "Select Faculty Mentor (Optional)"
+                            : "No faculty in this department yet"
+                          : "Select department first"}
+                      </option>
+                      {availableMentors.map((m: any) => (
+                        <option key={m.id} value={m.id}>
+                          {m.user?.name} — {m.designation || "Faculty Mentor"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -268,7 +349,7 @@ export default function RegisterPage() {
                       max="8"
                       required
                       value={semester}
-                      onChange={(e) => setSemester(e.target.value)}
+                      onChange={(e) => setSemester(Number(e.target.value) as any)}
                       placeholder="6"
                       className="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
                     />
@@ -279,6 +360,25 @@ export default function RegisterPage() {
 
             {role === "ACADEMICIAN" && (
               <div className="pt-2 border-t border-slate-100 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Faculty Department <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={selectedDepartmentId}
+                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                    className="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm text-slate-900 bg-white focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name} ({dept.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">

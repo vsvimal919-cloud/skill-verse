@@ -52,6 +52,30 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Resolve Department: use provided departmentId or fallback to default
+    let resolvedDepartmentId = extra.departmentId;
+    if (resolvedDepartmentId) {
+      const deptExists = await db.department.findUnique({
+        where: { id: resolvedDepartmentId },
+      });
+      if (!deptExists) {
+        resolvedDepartmentId = department.id;
+      }
+    } else {
+      resolvedDepartmentId = department.id;
+    }
+
+    // Resolve Mentor: if provided, verify AcademicianProfile exists
+    let resolvedMentorId = extra.mentorId || null;
+    if (resolvedMentorId) {
+      const mentorExists = await db.academicianProfile.findUnique({
+        where: { id: resolvedMentorId },
+      });
+      if (!mentorExists) {
+        resolvedMentorId = null;
+      }
+    }
+
     let user;
     let profileId: string | undefined;
 
@@ -65,7 +89,8 @@ export async function POST(req: NextRequest) {
           studentProfile: {
             create: {
               institutionId: institution.id,
-              departmentId: department.id,
+              departmentId: resolvedDepartmentId,
+              mentorId: resolvedMentorId,
               registerNumber: extra.registerNumber || `REG-${Date.now().toString().slice(-6)}`,
               batchYear: Number(extra.batchYear) || 2026,
               semester: Number(extra.semester) || 1,
@@ -87,7 +112,7 @@ export async function POST(req: NextRequest) {
           academicianProfile: {
             create: {
               institutionId: institution.id,
-              departmentId: department.id,
+              departmentId: resolvedDepartmentId,
               designation: extra.designation || "Assistant Professor",
               employeeId: extra.employeeId || `EMP-${Date.now().toString().slice(-4)}`,
               specialization: extra.specialization || "Computer Science",
@@ -131,7 +156,7 @@ export async function POST(req: NextRequest) {
       name: user.name,
       profileId,
       institutionId: institution.id,
-      departmentId: department.id,
+      departmentId: resolvedDepartmentId,
     });
 
     const response = NextResponse.json({
