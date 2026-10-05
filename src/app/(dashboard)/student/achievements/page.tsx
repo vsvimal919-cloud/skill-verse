@@ -15,7 +15,11 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 export default function StudentAchievementsPage() {
+  const router = useRouter();
   const [achievements, setAchievements] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +120,10 @@ export default function StudentAchievementsPage() {
 
       const data = await res.json();
       if (data.success) {
+        const primarySkill = (skillsUsed || "Python").split(/[,;]/)[0].trim() || "Python";
+        const savedAchievementId = data.achievement.id;
+        const currentEventName = eventName;
+
         // Reset form
         setEventName("");
         setOrganization("");
@@ -127,7 +135,11 @@ export default function StudentAchievementsPage() {
         setCertFile(null);
         setPhotoFile(null);
         setFormOpen(false);
-        loadData();
+
+        // Directly redirect to Verification Test workflow
+        router.push(
+          `/student/assessment?skill=${encodeURIComponent(primarySkill)}&achievementId=${savedAchievementId}&name=${encodeURIComponent(currentEventName)}`
+        );
       } else {
         alert(data.error || "Failed to save achievement");
       }
@@ -417,6 +429,15 @@ export default function StudentAchievementsPage() {
                     <span className="text-xs font-semibold text-slate-400">
                       {item.eventType.replace("_", " ")}
                     </span>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${
+                        item.isVerified
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}
+                    >
+                      {item.isVerified ? "✓ Verified Proof" : "Unverified"}
+                    </span>
                   </div>
                   <h3 className="text-xl font-bold text-slate-900">{item.eventName}</h3>
                   <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
@@ -436,6 +457,17 @@ export default function StudentAchievementsPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {!item.isVerified && (
+                    <Link
+                      href={`/student/assessment?skill=${encodeURIComponent(
+                        (item.skillsUsed || "Python").split(/[,;]/)[0].trim() || "Python"
+                      )}&achievementId=${item.id}&name=${encodeURIComponent(item.eventName)}`}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-1.5 text-xs font-bold transition shadow-sm"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Verify via Quiz ↗
+                    </Link>
+                  )}
                   {item.prizeAmount && (
                     <span className="rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-sm font-black text-emerald-800">
                       ₹ {item.prizeAmount.toLocaleString("en-IN")}

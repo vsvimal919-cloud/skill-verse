@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
@@ -13,7 +14,6 @@ import {
   Sparkles,
   Terminal,
   Award,
-  ChevronRight,
   BookOpen,
   ArrowRight,
   FileCode,
@@ -21,6 +21,8 @@ import {
   HelpCircle,
   Send,
   Loader2,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
 
 // Dynamically import Monaco Editor to prevent any SSR hydration mismatch
@@ -33,7 +35,13 @@ const Editor = dynamic(() => import("@monaco-editor/react"), {
   ),
 });
 
-export default function StudentAssessmentPage() {
+function AssessmentInner() {
+  const searchParams = useSearchParams();
+  const skillParam = searchParams.get("skill");
+  const achievementId = searchParams.get("achievementId");
+  const skillId = searchParams.get("skillId");
+  const certificateName = searchParams.get("name");
+
   const [profile, setProfile] = useState<any>(null);
   const [assessments, setAssessments] = useState<any[]>([]);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState("python-diagnostic");
@@ -69,6 +77,15 @@ export default function StudentAssessmentPage() {
   const [isSubmittingFinal, setIsSubmittingFinal] = useState(false);
   const [finalResult, setFinalResult] = useState<any>(null);
 
+  // Map skillParam to matching diagnostic assessment ID
+  const matchedAssessmentId = useMemo(() => {
+    if (!skillParam) return null;
+    const s = skillParam.toLowerCase();
+    if (s.includes("c++") || s.includes("cpp") || s === "c") return "cpp-diagnostic";
+    if (s.includes("js") || s.includes("javascript") || s.includes("react") || s.includes("node")) return "javascript-diagnostic";
+    return "python-diagnostic";
+  }, [skillParam]);
+
   useEffect(() => {
     async function loadInitialData() {
       try {
@@ -80,11 +97,10 @@ export default function StudentAssessmentPage() {
         const assessJson = await assessRes.json();
 
         if (profJson.success) setProfile(profJson.profile);
-        if (assessJson.success) {
+        if (assessJson.success && assessJson.assessments.length > 0) {
           setAssessments(assessJson.assessments);
-          if (assessJson.assessments.length > 0) {
-            loadAssessmentDetails(assessJson.assessments[0].id);
-          }
+          const initialId = matchedAssessmentId || assessJson.assessments[0].id;
+          loadAssessmentDetails(initialId);
         }
       } catch (err) {
         console.error("Failed to load assessments", err);
@@ -93,7 +109,7 @@ export default function StudentAssessmentPage() {
       }
     }
     loadInitialData();
-  }, []);
+  }, [matchedAssessmentId]);
 
   const loadAssessmentDetails = async (id: string) => {
     try {
@@ -239,11 +255,11 @@ export default function StudentAssessmentPage() {
   const totalScore = mcqScore + codingScore;
   const isPassed = totalScore >= 60;
 
-  // Final submit handler
+  // Final submit handler — updates both skill and achievement in PostgreSQL
   const handleFinalSubmit = async () => {
     if (!testStats) {
       const confirmSubmitWithoutTests = confirm(
-        "You haven't run the automated test cases yet. Running them gives up to 50 marks for the coding challenge. Do you want to submit anyway?"
+        "You haven't run the automated test cases yet. Running them provides up to 50 marks for the coding challenge. Do you want to submit anyway?"
       );
       if (!confirmSubmitWithoutTests) return;
     }
@@ -255,6 +271,8 @@ export default function StudentAssessmentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           assessmentId: assessment.id,
+          achievementId: achievementId || undefined,
+          skillId: skillId || undefined,
           mcqScore,
           codingScore,
           totalScore,
@@ -279,7 +297,7 @@ export default function StudentAssessmentPage() {
 
   if (loading && !assessment) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
         <div className="flex items-center gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
           <span className="font-semibold text-sm">Loading Skill Diagnostic Playground...</span>
@@ -287,6 +305,8 @@ export default function StudentAssessmentPage() {
       </div>
     );
   }
+
+  const verificationTargetName = certificateName || skillParam;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -298,6 +318,38 @@ export default function StudentAssessmentPage() {
           profileId: profile?.id,
         }}
       />
+
+      {/* VERIFICATION FLOW BANNER */}
+      {verificationTargetName && (
+        <div className="bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 border-b border-blue-500/30">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400 flex-shrink-0">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3 text-amber-300" />
+                  Direct Proof Verification Test
+                </span>
+                <h2 className="text-sm font-bold text-white">
+                  Verification Quiz for {verificationTargetName}
+                </h2>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-300">
+                Passing Score: <strong className="text-emerald-400">≥ 60%</strong>
+              </span>
+              <span className="text-xs text-slate-500">•</span>
+              <span className="text-xs text-slate-300">
+                Updates PostgreSQL to <strong className="text-emerald-400">Verified</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assessment Header / Controls */}
       <div className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-16 z-30">
@@ -389,7 +441,6 @@ export default function StudentAssessmentPage() {
 
               <div className="space-y-8">
                 {assessment?.mcqQuestions?.map((q: any, idx: number) => {
-                  const isAnswered = selectedAnswers[q.id] !== undefined;
                   const selectedIdx = selectedAnswers[q.id];
 
                   return (
@@ -597,8 +648,7 @@ export default function StudentAssessmentPage() {
                 </div>
 
                 <p className="text-xs text-slate-400">
-                  Click &ldquo;Submit & Run Test Cases&rdquo; to evaluate your code against visible and hidden
-                  grading test cases.
+                  Click &ldquo;Submit & Run Test Cases&rdquo; to evaluate your code against automated test cases.
                 </p>
 
                 {testResults && (
@@ -835,7 +885,7 @@ export default function StudentAssessmentPage() {
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
-                  Submit Assessment & Update Profile
+                  Submit Assessment & Verify in PostgreSQL
                 </button>
               </div>
             </div>
@@ -864,18 +914,31 @@ export default function StudentAssessmentPage() {
                       : "bg-amber-950 text-amber-300 border-amber-800"
                   }`}
                 >
-                  {isPassed ? "Assessment Passed" : "Needs Further Practice"}
+                  {isPassed ? "Assessment Passed • Verified" : "Needs Further Practice"}
                 </span>
                 <h2 className="text-3xl font-black text-white mt-3">
-                  {isPassed ? "Congratulations! Skill Verified" : "Assessment Completed"}
+                  {isPassed ? "Congratulations! Credential Verified" : "Assessment Completed"}
                 </h2>
-                <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
+                <p className="text-sm text-slate-300 mt-2 max-w-md mx-auto leading-relaxed">
                   {finalResult?.message ||
                     (isPassed
-                      ? "Your proficiency score has been updated and reflected in your verified skill graph."
+                      ? "Both your skill status and certificate proof status have been marked as Verified in PostgreSQL."
                       : "Keep practicing algorithmic challenges and conceptual questions to reach verified status.")}
                 </p>
               </div>
+
+              {/* PostgreSQL Verification Confirmation Pill */}
+              {isPassed && (
+                <div className="p-3.5 rounded-2xl bg-emerald-950/70 border border-emerald-500/60 text-emerald-200 text-xs font-semibold flex items-center justify-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  <span>
+                    PostgreSQL Updated:{" "}
+                    <strong>
+                      {achievementId ? "Certificate Proof & Skill Verified" : "Skill Marked as Verified"}
+                    </strong>
+                  </span>
+                </div>
+              )}
 
               {/* Score Breakdown Grid */}
               <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-950 border border-slate-800/80">
@@ -896,28 +959,45 @@ export default function StudentAssessmentPage() {
               {/* Quick Navigation Links */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
                 <Link
-                  href="/student/skills"
+                  href="/student/achievements"
                   className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition"
+                >
+                  View Verified Achievements
+                </Link>
+                <Link
+                  href="/student/skills"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs transition"
                 >
                   View Verified Skills
                 </Link>
                 <Link
                   href="/student/skill-gap"
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs transition"
-                >
-                  Re-evaluate Skill Gap Matrix
-                </Link>
-                <button
-                  onClick={() => loadAssessmentDetails(selectedAssessmentId)}
                   className="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-800 hover:bg-slate-800 text-slate-400 font-bold text-xs transition"
                 >
-                  Retake Assessment
-                </button>
+                  Skill Gap Matrix
+                </Link>
               </div>
             </div>
           </div>
         )}
       </main>
     </div>
+  );
+}
+
+export default function StudentAssessmentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
+            <span className="font-semibold text-sm">Loading Skill Diagnostic Playground...</span>
+          </div>
+        </div>
+      }
+    >
+      <AssessmentInner />
+    </Suspense>
   );
 }

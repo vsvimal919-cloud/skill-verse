@@ -14,7 +14,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 export default function StudentSkillsPage() {
+  const router = useRouter();
   const [skills, setSkills] = useState<any[]>([]);
   const [taxonomy, setTaxonomy] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -73,10 +77,17 @@ export default function StudentSkillsPage() {
 
       const data = await res.json();
       if (data.success) {
+        const addedSkillName = data.studentSkill?.skill?.name || customSkillName || "Skill";
+        const addedSkillId = data.studentSkill?.skill?.id || "";
+
         setSelectedSkillId("");
         setCustomSkillName("");
         setFormOpen(false);
-        loadSkills();
+
+        // Redirect directly to verification test workflow
+        router.push(
+          `/student/assessment?skill=${encodeURIComponent(addedSkillName)}&skillId=${addedSkillId}`
+        );
       } else {
         alert(data.error || "Failed to add skill");
       }
@@ -290,13 +301,22 @@ export default function StudentSkillsPage() {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900">{item.skill.name}</span>
-                    {item.isVerified && (
+                    {item.isVerified ? (
                       <span
-                        title="Verified by Faculty Mentor"
+                        title="Verified Skill"
                         className="inline-flex items-center text-emerald-600"
                       >
                         <CheckCircle2 className="h-4 w-4" />
                       </span>
+                    ) : (
+                      <Link
+                        href={`/student/assessment?skill=${encodeURIComponent(item.skill.name)}&skillId=${item.skill.id}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-lg transition"
+                        title="Take Diagnostic Quiz to verify this skill"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        Verify ↗
+                      </Link>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

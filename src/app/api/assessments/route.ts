@@ -590,6 +590,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       assessmentId,
+      achievementId,
+      skillId,
       mcqScore,
       codingScore,
       totalScore,
@@ -615,23 +617,38 @@ export async function POST(req: NextRequest) {
     });
 
     if (!dbAssessment && assessmentData) {
-      // Find matching skill in DB
-      const skill = await db.skill.findFirst({
-        where: { slug: assessmentData.slug },
+      // Find or create matching skill in DB
+      let skill = await db.skill.findFirst({
+        where: {
+          OR: [
+            { slug: assessmentData.slug },
+            { name: { equals: assessmentData.skillName, mode: "insensitive" } },
+          ],
+        },
       });
 
-      if (skill) {
-        dbAssessment = await db.skillAssessment.create({
+      if (!skill) {
+        skill = await db.skill.create({
           data: {
-            id: assessmentData.id,
-            title: assessmentData.title,
-            skillId: skill.id,
-            totalMarks: assessmentData.totalMarks,
-            passingMarks: 60,
-            questionsJson: JSON.stringify(assessmentData.mcqQuestions),
+            name: assessmentData.skillName,
+            slug: assessmentData.slug,
+            category: "TECHNICAL",
+            description: assessmentData.description,
+            isVerified: true,
           },
         });
       }
+
+      dbAssessment = await db.skillAssessment.create({
+        data: {
+          id: assessmentData.id,
+          title: assessmentData.title,
+          skillId: skill.id,
+          totalMarks: assessmentData.totalMarks,
+          passingMarks: 60,
+          questionsJson: JSON.stringify(assessmentData.mcqQuestions),
+        },
+      });
     }
 
     let savedResult = null;
@@ -645,51 +662,88 @@ export async function POST(req: NextRequest) {
           passed: Boolean(passed),
         },
       });
+    }
 
-      // If passed, bump career readiness score slightly and mark skill verified or upgrade proficiency
-      if (passed) {
-        const skill = await db.skill.findFirst({
-          where: { slug: assessmentData?.slug },
-        });
-
-        if (skill) {
-          await db.studentSkill.upsert({
-            where: {
-              studentId_skillId: {
-                studentId: studentProfile.id,
-                skillId: skill.id,
-              },
-            },
-            update: {
-              isVerified: true,
-              proficiencyLevel: percentage >= 85 ? "ADVANCED" : "INTERMEDIATE",
-            },
-            create: {
-              studentId: studentProfile.id,
-              skillId: skill.id,
-              proficiencyLevel: percentage >= 85 ? "ADVANCED" : "INTERMEDIATE",
-              yearsOfExperience: 1.0,
-              isVerified: true,
-            },
-          });
-        }
-
-        // Increment readiness score up to 100
-        const currentReadiness = studentProfile.careerReadinessScore || 65;
-        const newReadiness = Math.min(100, Math.round(currentReadiness + 5));
-        await db.studentProfile.update({
-          where: { id: studentProfile.id },
-          data: { careerReadinessScore: newReadiness },
+    // If passed (score >= 60%), update both skill status AND certificate proof status to "Verified" in PostgreSQL
+    if (passed) {
+      // 1. Verify the specific skill in PostgreSQL
+      let targetSkill = null;
+      if (skillId) {
+        targetSkill = await db.skill.findUnique({ where: { id: skillId } });
+      }
+      if (!targetSkill && assessmentData?.slug) {
+        targetSkill = await db.skill.findFirst({
+          where: {
+            OR: [
+              { slug: assessmentData.slug },
+              { name: { equals: assessmentData.skillName, mode: "insensitive" } },
+            ],
+          },
         });
       }
+
+      if (targetSkill) {
+        await db.studentSkill.upsert({
+          where: {
+            studentId_skillId: {
+              studentId: studentProfile.id,
+              skillId: targetSkill.id,
+            },
+          },
+          update: {
+            isVerified: true,
+            proficiencyLevel: percentage >= 85 ? "ADVANCED" : "INTERMEDIATE",
+          },
+          create: {
+            studentId: studentProfile.id,
+            skillId: targetSkill.id,
+            proficiencyLevel: percentage >= 85 ? "ADVANCED" : "INTERMEDIATE",
+            yearsOfExperience: 1.0,
+            isVerified: true,
+          },
+        });
+      }
+
+      // 2. If an achievementId was attached, verify the achievement certificate/proof in PostgreSQL
+      let verifiedAchievement = null;
+      if (achievementId) {
+        const updateRes = await db.studentAchievement.updateMany({
+          where: { id: achievementId, studentId: studentProfile.id },
+          data: { isVerified: true },
+        });
+        if (updateRes.count > 0) {
+          verifiedAchievement = await db.studentAchievement.findUnique({
+            where: { id: achievementId },
+            select: { eventName: true },
+          });
+        }
+      }
+
+      // 3. Increment career readiness score up to 100
+      const currentReadiness = studentProfile.careerReadinessScore || 65;
+      const newReadiness = Math.min(100, Math.round(currentReadiness + (achievementId ? 8 : 5)));
+      await db.studentProfile.update({
+        where: { id: studentProfile.id },
+        data: { careerReadinessScore: newReadiness },
+      });
+
+      const achievementNote = verifiedAchievement?.eventName
+        ? ` and certificate proof for "${verifiedAchievement.eventName}"`
+        : "";
+
+      return NextResponse.json({
+        success: true,
+        result: savedResult,
+        verifiedAchievementId: achievementId || null,
+        verifiedSkillName: targetSkill?.name || null,
+        message: `Assessment passed! Skill "${targetSkill?.name || "Technical"}"${achievementNote} has been marked as Verified in PostgreSQL.`,
+      });
     }
 
     return NextResponse.json({
       success: true,
       result: savedResult,
-      message: passed
-        ? "Assessment successfully passed! Your verified skills and career readiness score have been upgraded."
-        : "Assessment submitted. Review your diagnostic feedback and try again.",
+      message: "Assessment submitted. Score is below passing criteria (60%). Review diagnostic feedback and try again.",
     });
   } catch (error: any) {
     console.error("Save assessment error:", error);
