@@ -18,6 +18,13 @@ import {
   ArrowRight,
   TrendingUp,
   FileCheck,
+  FileText,
+  BookOpen,
+  Video,
+  Trophy,
+  Clock,
+  Wrench,
+  User,
 } from "lucide-react";
 
 export default function FacultyDashboard() {
@@ -31,6 +38,15 @@ export default function FacultyDashboard() {
   const [deptStudents, setDeptStudents] = useState<any[]>([]);
   const [skillDistribution, setSkillDistribution] = useState<any[]>([]);
   const [unverifiedAchievements, setUnverifiedAchievements] = useState<any[]>([]);
+  const [categoryCounts, setCategoryCounts] = useState<any>({
+    HACKATHON: 0,
+    PAPER_PRESENTATION: 0,
+    WORKSHOP: 0,
+    WEBINAR: 0,
+  });
+
+  // Filter state for unverified achievements
+  const [achievementFilterType, setAchievementFilterType] = useState<string>("ALL");
 
   const [searchFilter, setSearchFilter] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -56,6 +72,9 @@ export default function FacultyDashboard() {
         setDeptStudents(json.deptStudents || []);
         setSkillDistribution(json.skillDistribution || []);
         setUnverifiedAchievements(json.unverifiedAchievements || []);
+        if (json.categoryCounts) {
+          setCategoryCounts(json.categoryCounts);
+        }
 
         if (!selectedDeptId && json.facultyProfile?.departmentId) {
           setSelectedDeptId(json.facultyProfile.departmentId);
@@ -95,6 +114,41 @@ export default function FacultyDashboard() {
     }
   };
 
+  const getCategoryBadge = (type: string) => {
+    switch (type) {
+      case "HACKATHON":
+        return {
+          label: "Hackathon",
+          bg: "bg-purple-100 text-purple-800 border-purple-200",
+          icon: Trophy,
+        };
+      case "PAPER_PRESENTATION":
+        return {
+          label: "Paper Presentation",
+          bg: "bg-blue-100 text-blue-800 border-blue-200",
+          icon: FileText,
+        };
+      case "WORKSHOP":
+        return {
+          label: "Workshop / Bootcamp",
+          bg: "bg-emerald-100 text-emerald-800 border-emerald-200",
+          icon: BookOpen,
+        };
+      case "WEBINAR":
+        return {
+          label: "Webinar",
+          bg: "bg-rose-100 text-rose-800 border-rose-200",
+          icon: Video,
+        };
+      default:
+        return {
+          label: type.replace("_", " "),
+          bg: "bg-slate-100 text-slate-800 border-slate-200",
+          icon: Award,
+        };
+    }
+  };
+
   const filteredMentees = mentees.filter((m) =>
     searchFilter
       ? m.user?.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
@@ -108,6 +162,11 @@ export default function FacultyDashboard() {
         s.registerNumber?.toLowerCase().includes(searchFilter.toLowerCase())
       : true
   );
+
+  const filteredUnverified = unverifiedAchievements.filter((ach) => {
+    if (achievementFilterType === "ALL") return true;
+    return ach.eventType === achievementFilterType;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -142,7 +201,7 @@ export default function FacultyDashboard() {
               Faculty Mentorship & Department View
             </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Manage your direct mentees, verify credentials, and monitor department-wide career readiness scores.
+              Manage mentees, verify credentials across all 4 event categories, and monitor department-wide career readiness.
             </p>
           </div>
 
@@ -160,6 +219,65 @@ export default function FacultyDashboard() {
               </div>
               <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 Pending Proofs
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Department 4 Dynamic Event Category Summary Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-600 text-white shadow-md shadow-purple-500/20 shrink-0">
+              <Trophy className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-purple-900">
+                {categoryCounts.HACKATHON || 0}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-purple-700">
+                Hackathons
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 shrink-0">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-blue-900">
+                {categoryCounts.PAPER_PRESENTATION || 0}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-700">
+                Paper Presentations
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-500/20 shrink-0">
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-emerald-900">
+                {categoryCounts.WORKSHOP || 0}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                Workshops & Bootcamps
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-600 text-white shadow-md shadow-rose-500/20 shrink-0">
+              <Video className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-rose-900">
+                {categoryCounts.WEBINAR || 0}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
+                Webinars
               </div>
             </div>
           </div>
@@ -244,78 +362,187 @@ export default function FacultyDashboard() {
                 {/* Pending Verification Requests for Mentees */}
                 {unverifiedAchievements.length > 0 && (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                       <div className="flex items-center gap-2">
                         <Award className="h-5 w-5 text-amber-600" />
                         <h2 className="text-base font-bold text-slate-900">
                           Unverified Certificates & Achievements Awaiting Review
                         </h2>
                       </div>
-                      <span className="rounded-full bg-amber-200/80 px-2.5 py-0.5 text-xs font-bold text-amber-800">
-                        {unverifiedAchievements.length} Pending
-                      </span>
+
+                      {/* Category Filter for Verification Queue */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {[
+                          { id: "ALL", label: `All (${unverifiedAchievements.length})` },
+                          {
+                            id: "HACKATHON",
+                            label: `Hackathons (${unverifiedAchievements.filter((a) => a.eventType === "HACKATHON").length})`,
+                          },
+                          {
+                            id: "PAPER_PRESENTATION",
+                            label: `Papers (${unverifiedAchievements.filter((a) => a.eventType === "PAPER_PRESENTATION").length})`,
+                          },
+                          {
+                            id: "WORKSHOP",
+                            label: `Workshops (${unverifiedAchievements.filter((a) => a.eventType === "WORKSHOP").length})`,
+                          },
+                          {
+                            id: "WEBINAR",
+                            label: `Webinars (${unverifiedAchievements.filter((a) => a.eventType === "WEBINAR").length})`,
+                          },
+                        ].map((btn) => (
+                          <button
+                            key={btn.id}
+                            onClick={() => setAchievementFilterType(btn.id)}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                              achievementFilterType === btn.id
+                                ? "bg-amber-600 text-white shadow-sm"
+                                : "bg-white text-slate-600 border border-amber-200 hover:bg-amber-100/60"
+                            }`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {unverifiedAchievements.map((ach) => (
-                        <div
-                          key={ach.id}
-                          className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm flex flex-col justify-between"
-                        >
-                          <div>
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <span className="inline-block rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 uppercase">
-                                  {ach.eventType}
+                      {filteredUnverified.map((ach) => {
+                        const catBadge = getCategoryBadge(ach.eventType);
+                        const CatIcon = catBadge.icon;
+
+                        return (
+                          <div
+                            key={ach.id}
+                            className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <span
+                                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${catBadge.bg}`}
+                                  >
+                                    <CatIcon className="h-3 w-3" />
+                                    {catBadge.label}
+                                  </span>
+                                  <h3 className="font-bold text-slate-900 mt-1">{ach.eventName}</h3>
+                                  <p className="text-xs text-slate-500">{ach.organization}</p>
+                                </div>
+                                <span className="text-xs font-semibold text-slate-400">
+                                  {ach.student?.user?.name}
                                 </span>
-                                <h3 className="font-bold text-slate-900 mt-1">{ach.eventName}</h3>
-                                <p className="text-xs text-slate-500">{ach.organization}</p>
                               </div>
-                              <span className="text-xs font-semibold text-slate-400">
-                                {ach.student?.user?.name}
-                              </span>
+
+                              {/* Category specific details in card */}
+                              {ach.eventType === "HACKATHON" && ach.prizeDetails && (
+                                <div className="mt-2 text-xs font-semibold text-purple-900 bg-purple-50 px-2 py-1 rounded-md border border-purple-200 inline-block">
+                                  🏆 Prize: {ach.prizeDetails}
+                                </div>
+                              )}
+
+                              {ach.eventType === "PAPER_PRESENTATION" && (ach.paperTitle || ach.conferenceName) && (
+                                <div className="mt-2 text-xs space-y-0.5 bg-blue-50 p-2 rounded-md border border-blue-200">
+                                  {ach.paperTitle && (
+                                    <div className="font-bold text-blue-900">📄 {ach.paperTitle}</div>
+                                  )}
+                                  {ach.conferenceName && (
+                                    <div className="text-blue-700">🏛️ {ach.conferenceName}</div>
+                                  )}
+                                  {ach.publicationUrl && (
+                                    <div>
+                                      <a
+                                        href={ach.publicationUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Publication Link
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {ach.eventType === "WORKSHOP" && (ach.workshopDuration || ach.toolsLearned) && (
+                                <div className="mt-2 text-xs flex flex-wrap gap-2 bg-emerald-50 p-2 rounded-md border border-emerald-200 font-semibold text-emerald-900">
+                                  {ach.workshopDuration && (
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3 text-emerald-600" />
+                                      {ach.workshopDuration}
+                                    </span>
+                                  )}
+                                  {ach.toolsLearned && (
+                                    <span className="flex items-center gap-1">
+                                      <Wrench className="h-3 w-3 text-emerald-600" />
+                                      {ach.toolsLearned}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {ach.eventType === "WEBINAR" && ach.speakerName && (
+                                <div className="mt-2 text-xs bg-rose-50 p-2 rounded-md border border-rose-200 font-semibold text-rose-900 flex items-center gap-1">
+                                  <User className="h-3 w-3 text-rose-600" />
+                                  Speaker: {ach.speakerName}
+                                </div>
+                              )}
+
+                              {ach.description && (
+                                <p className="mt-2 text-xs text-slate-600 line-clamp-2">
+                                  {ach.description}
+                                </p>
+                              )}
+
+                              {/* Proof Links */}
+                              {(ach.certificateFile || ach.proofPhotoFile) && (
+                                <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                                  {ach.certificateFile && (
+                                    <a
+                                      href={`/api/files/${ach.certificateFile.id}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline"
+                                    >
+                                      <FileCheck className="h-3 w-3" />
+                                      Certificate Document
+                                    </a>
+                                  )}
+                                  {ach.proofPhotoFile && (
+                                    <a
+                                      href={`/api/files/${ach.proofPhotoFile.id}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      Photo Evidence
+                                    </a>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
-                            {ach.description && (
-                              <p className="mt-2 text-xs text-slate-600 line-clamp-2">
-                                {ach.description}
-                              </p>
-                            )}
-
-                            {ach.certificateUrl && (
-                              <div className="mt-2">
-                                <a
-                                  href={ach.certificateUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  View Submitted Proof Document
-                                </a>
-                              </div>
-                            )}
+                            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleVerifyAchievement(ach.id, "REJECTED")}
+                                disabled={processingId === ach.id}
+                                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                onClick={() => handleVerifyAchievement(ach.id, "APPROVED")}
+                                disabled={processingId === ach.id}
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                {processingId === ach.id ? "Verifying..." : "Approve & Verify"}
+                              </button>
+                            </div>
                           </div>
-
-                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleVerifyAchievement(ach.id, "REJECTED")}
-                              disabled={processingId === ach.id}
-                              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
-                            >
-                              Reject
-                            </button>
-                            <button
-                              onClick={() => handleVerifyAchievement(ach.id, "APPROVED")}
-                              disabled={processingId === ach.id}
-                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              {processingId === ach.id ? "Verifying..." : "Approve & Verify"}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

@@ -102,6 +102,24 @@ export async function GET(req: NextRequest) {
     }
     const skillDistribution = Object.values(skillCounts).sort((a, b) => b.count - a.count);
 
+    // 5. Category breakdown across institution
+    const categoryCounts: Record<string, number> = {
+      HACKATHON: 0,
+      PAPER_PRESENTATION: 0,
+      WORKSHOP: 0,
+      WEBINAR: 0,
+    };
+
+    for (const student of students) {
+      for (const ach of student.achievements) {
+        if (categoryCounts[ach.eventType] !== undefined) {
+          categoryCounts[ach.eventType]++;
+        } else {
+          categoryCounts[ach.eventType] = (categoryCounts[ach.eventType] || 0) + 1;
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       institution: {
@@ -112,6 +130,7 @@ export async function GET(req: NextRequest) {
       departmentStats,
       students,
       skillDistribution,
+      categoryCounts,
     });
   } catch (error: any) {
     console.error("Institution dashboard error:", error);

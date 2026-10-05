@@ -123,9 +123,29 @@ export async function GET(req: NextRequest) {
             department: true,
           },
         },
+        certificateFile: true,
+        proofPhotoFile: true,
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // 7. Aggregate Category Metrics across department students
+    const categoryCounts: Record<string, number> = {
+      HACKATHON: 0,
+      PAPER_PRESENTATION: 0,
+      WORKSHOP: 0,
+      WEBINAR: 0,
+    };
+
+    for (const student of deptStudents) {
+      for (const ach of student.achievements) {
+        if (categoryCounts[ach.eventType] !== undefined) {
+          categoryCounts[ach.eventType]++;
+        } else {
+          categoryCounts[ach.eventType] = (categoryCounts[ach.eventType] || 0) + 1;
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -135,6 +155,7 @@ export async function GET(req: NextRequest) {
       deptStudents,
       skillDistribution,
       unverifiedAchievements,
+      categoryCounts,
     });
   } catch (error: any) {
     console.error("Faculty dashboard API error:", error);

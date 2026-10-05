@@ -15,6 +15,10 @@ import {
   ExternalLink,
   ShieldCheck,
   TrendingUp,
+  Trophy,
+  FileText,
+  BookOpen,
+  Video,
 } from "lucide-react";
 
 export default function InstitutionDashboard() {
@@ -99,6 +103,65 @@ export default function InstitutionDashboard() {
               </div>
               <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 Total Students
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 4 Dynamic Event Category Summary Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-600 text-white shadow-md shadow-purple-500/20 shrink-0">
+              <Trophy className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-purple-900">
+                {data?.categoryCounts?.HACKATHON || 0}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-purple-700">
+                Hackathons
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 shrink-0">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-blue-900">
+                {data?.categoryCounts?.PAPER_PRESENTATION || 0}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-700">
+                Paper Presentations
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-500/20 shrink-0">
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-emerald-900">
+                {data?.categoryCounts?.WORKSHOP || 0}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                Workshops & Bootcamps
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-600 text-white shadow-md shadow-rose-500/20 shrink-0">
+              <Video className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-rose-900">
+                {data?.categoryCounts?.WEBINAR || 0}
+              </div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
+                Webinars
               </div>
             </div>
           </div>

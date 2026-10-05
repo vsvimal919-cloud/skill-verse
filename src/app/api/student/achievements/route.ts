@@ -56,11 +56,18 @@ export async function POST(req: NextRequest) {
       description,
       certificateFileId,
       proofPhotoFileId,
+      // Dynamic category specific fields
+      paperTitle,
+      conferenceName,
+      publicationUrl,
+      workshopDuration,
+      toolsLearned,
+      speakerName,
     } = body;
 
-    if (!eventName || !organization || !eventDate || !participationStatus || !description) {
+    if (!eventName || !organization || !eventDate || !description) {
       return NextResponse.json(
-        { success: false, error: "Event name, organization, date, status, and description are required" },
+        { success: false, error: "Event name, organization, date, and description are required" },
         { status: 400 }
       );
     }
@@ -72,13 +79,19 @@ export async function POST(req: NextRequest) {
         eventType: eventType || "HACKATHON",
         organization,
         eventDate: new Date(eventDate),
-        participationStatus,
+        participationStatus: participationStatus || "PARTICIPANT",
         prizeDetails: prizeDetails || null,
         prizeAmount: prizeAmount ? parseFloat(prizeAmount) : null,
         skillsUsed: skillsUsed || "",
         description,
         certificateFileId: certificateFileId || null,
         proofPhotoFileId: proofPhotoFileId || null,
+        paperTitle: paperTitle || null,
+        conferenceName: conferenceName || null,
+        publicationUrl: publicationUrl || null,
+        workshopDuration: workshopDuration || null,
+        toolsLearned: toolsLearned || null,
+        speakerName: speakerName || null,
       },
       include: {
         certificateFile: true,

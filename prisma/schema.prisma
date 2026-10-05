@@ -308,6 +308,15 @@ model StudentAchievement {
   certificateFileId   String?
   proofPhotoFileId    String?
   isVerified          Boolean        @default(false)
+
+  // Dynamic Event Category Fields
+  paperTitle          String?        // PAPER_PRESENTATION
+  conferenceName      String?        // PAPER_PRESENTATION
+  publicationUrl      String?        // PAPER_PRESENTATION
+  workshopDuration    String?        // WORKSHOP (e.g. "3 Days", "16 Hours")
+  toolsLearned        String?        // WORKSHOP (e.g. "Docker, Kubernetes, Helm")
+  speakerName         String?        // WEBINAR (e.g. "Dr. Andrew Ng")
+
   createdAt           DateTime       @default(now())
 
   student             StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
