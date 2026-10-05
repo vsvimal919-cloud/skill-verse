@@ -35,6 +35,21 @@ async function main() {
     },
   });
 
+  const deptIT = await prisma.department.upsert({
+    where: {
+      institutionId_code: {
+        institutionId: institution.id,
+        code: "IT",
+      },
+    },
+    update: {},
+    create: {
+      name: "Information Technology",
+      code: "IT",
+      institutionId: institution.id,
+    },
+  });
+
   const deptAIDS = await prisma.department.upsert({
     where: {
       institutionId_code: {
@@ -46,6 +61,51 @@ async function main() {
     create: {
       name: "Artificial Intelligence & Data Science",
       code: "AIDS",
+      institutionId: institution.id,
+    },
+  });
+
+  const deptECE = await prisma.department.upsert({
+    where: {
+      institutionId_code: {
+        institutionId: institution.id,
+        code: "ECE",
+      },
+    },
+    update: {},
+    create: {
+      name: "Electronics & Communication Engineering",
+      code: "ECE",
+      institutionId: institution.id,
+    },
+  });
+
+  const deptEEE = await prisma.department.upsert({
+    where: {
+      institutionId_code: {
+        institutionId: institution.id,
+        code: "EEE",
+      },
+    },
+    update: {},
+    create: {
+      name: "Electrical & Electronics Engineering",
+      code: "EEE",
+      institutionId: institution.id,
+    },
+  });
+
+  const deptMECH = await prisma.department.upsert({
+    where: {
+      institutionId_code: {
+        institutionId: institution.id,
+        code: "MECH",
+      },
+    },
+    update: {},
+    create: {
+      name: "Mechanical Engineering",
+      code: "MECH",
       institutionId: institution.id,
     },
   });
@@ -320,7 +380,7 @@ async function main() {
     },
   });
 
-  // Academician
+  // Academician Faculty Members (Assigned across departments)
   const facultyUser = await prisma.user.upsert({
     where: { email: "faculty@apex.edu" },
     update: {},
@@ -336,6 +396,111 @@ async function main() {
           designation: "Associate Professor & Placement Coordinator",
           employeeId: "FAC-CSE-094",
           specialization: "Data Science & Cloud Computing",
+        },
+      },
+    },
+    include: { academicianProfile: true },
+  });
+
+  const facultyIT = await prisma.user.upsert({
+    where: { email: "faculty.it@apex.edu" },
+    update: {},
+    create: {
+      email: "faculty.it@apex.edu",
+      name: "Prof. Rajesh Sharma",
+      passwordHash: defaultPassword,
+      role: "ACADEMICIAN",
+      academicianProfile: {
+        create: {
+          institutionId: institution.id,
+          departmentId: deptIT.id,
+          designation: "Professor & IT Department Head",
+          employeeId: "FAC-IT-102",
+          specialization: "Distributed Systems & Cloud Architecture",
+        },
+      },
+    },
+    include: { academicianProfile: true },
+  });
+
+  const facultyAIDS = await prisma.user.upsert({
+    where: { email: "faculty.aids@apex.edu" },
+    update: {},
+    create: {
+      email: "faculty.aids@apex.edu",
+      name: "Dr. Ananya Iyer",
+      passwordHash: defaultPassword,
+      role: "ACADEMICIAN",
+      academicianProfile: {
+        create: {
+          institutionId: institution.id,
+          departmentId: deptAIDS.id,
+          designation: "Associate Professor (AI Research Lab)",
+          employeeId: "FAC-AIDS-055",
+          specialization: "Deep Learning, NLP & Computer Vision",
+        },
+      },
+    },
+    include: { academicianProfile: true },
+  });
+
+  const facultyECE = await prisma.user.upsert({
+    where: { email: "faculty.ece@apex.edu" },
+    update: {},
+    create: {
+      email: "faculty.ece@apex.edu",
+      name: "Prof. Vikram Malhotra",
+      passwordHash: defaultPassword,
+      role: "ACADEMICIAN",
+      academicianProfile: {
+        create: {
+          institutionId: institution.id,
+          departmentId: deptECE.id,
+          designation: "Assistant Professor & IoT Squad Lead",
+          employeeId: "FAC-ECE-031",
+          specialization: "Embedded Systems, Robotics & VLSI",
+        },
+      },
+    },
+    include: { academicianProfile: true },
+  });
+
+  const facultyEEE = await prisma.user.upsert({
+    where: { email: "faculty.eee@apex.edu" },
+    update: {},
+    create: {
+      email: "faculty.eee@apex.edu",
+      name: "Dr. Suresh Raina",
+      passwordHash: defaultPassword,
+      role: "ACADEMICIAN",
+      academicianProfile: {
+        create: {
+          institutionId: institution.id,
+          departmentId: deptEEE.id,
+          designation: "Professor (Smart Grid Systems)",
+          employeeId: "FAC-EEE-012",
+          specialization: "Power Systems & Renewable Energy",
+        },
+      },
+    },
+    include: { academicianProfile: true },
+  });
+
+  const facultyMECH = await prisma.user.upsert({
+    where: { email: "faculty.mech@apex.edu" },
+    update: {},
+    create: {
+      email: "faculty.mech@apex.edu",
+      name: "Prof. Arvind Swamy",
+      passwordHash: defaultPassword,
+      role: "ACADEMICIAN",
+      academicianProfile: {
+        create: {
+          institutionId: institution.id,
+          departmentId: deptMECH.id,
+          designation: "Associate Professor (Automation & CAD)",
+          employeeId: "FAC-MECH-048",
+          specialization: "Additive Manufacturing & Robotics",
         },
       },
     },
@@ -431,6 +596,7 @@ async function main() {
         create: {
           institutionId: institution.id,
           departmentId: deptCSE.id,
+          mentorId: facultyUser.academicianProfile?.id,
           registerNumber: "2024CSE042",
           batchYear: 2026,
           semester: 6,
@@ -446,6 +612,17 @@ async function main() {
     },
     include: { studentProfile: true },
   });
+
+  // Ensure mentorId is mapped if studentProfile was already existing
+  if (studentUser.studentProfile && facultyUser.academicianProfile) {
+    await prisma.studentProfile.update({
+      where: { id: studentUser.studentProfile.id },
+      data: {
+        mentorId: facultyUser.academicianProfile.id,
+        departmentId: deptCSE.id,
+      },
+    });
+  }
 
   // Seed Alex Kumar's Student Skills (Python, SQL, HTML & CSS)
   if (studentUser.studentProfile) {
@@ -530,6 +707,21 @@ async function main() {
           skillsUsed: "React, Node.js, Python, PostgreSQL",
           description: "Developed a distributed carbon footprint tracker for urban logistics fleets with real-time route optimization.",
           isVerified: true,
+        },
+      });
+
+      await prisma.studentAchievement.create({
+        data: {
+          studentId,
+          eventName: "AWS Certified Cloud Practitioner - Verification Pending",
+          eventType: "CERTIFICATION",
+          organization: "Amazon Web Services",
+          eventDate: new Date("2026-03-01"),
+          participationStatus: "PARTICIPANT",
+          prizeDetails: "Certificate Badge",
+          skillsUsed: "AWS Cloud, Docker",
+          description: "Candidate submitted certificate credential proof for verification by Faculty Mentor.",
+          isVerified: false,
         },
       });
     }

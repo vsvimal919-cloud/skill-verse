@@ -38,6 +38,8 @@ export async function middleware(req: NextRequest) {
   if (
     pathname.startsWith("/student") ||
     pathname.startsWith("/academician") ||
+    pathname.startsWith("/faculty") ||
+    pathname.startsWith("/institution") ||
     pathname.startsWith("/industry") ||
     pathname.startsWith("/admin")
   ) {
@@ -51,7 +53,18 @@ export async function middleware(req: NextRequest) {
     if (pathname.startsWith("/student") && sessionPayload.role !== "STUDENT") {
       return NextResponse.redirect(new URL(getRoleDashboard(sessionPayload.role), req.url));
     }
-    if (pathname.startsWith("/academician") && sessionPayload.role !== "ACADEMICIAN" && sessionPayload.role !== "ADMIN") {
+    if (
+      (pathname.startsWith("/academician") || pathname.startsWith("/faculty")) &&
+      sessionPayload.role !== "ACADEMICIAN" &&
+      sessionPayload.role !== "ADMIN"
+    ) {
+      return NextResponse.redirect(new URL(getRoleDashboard(sessionPayload.role), req.url));
+    }
+    if (
+      pathname.startsWith("/institution") &&
+      sessionPayload.role !== "ADMIN" &&
+      sessionPayload.role !== "ACADEMICIAN"
+    ) {
       return NextResponse.redirect(new URL(getRoleDashboard(sessionPayload.role), req.url));
     }
     if (pathname.startsWith("/industry") && sessionPayload.role !== "INDUSTRY" && sessionPayload.role !== "ADMIN") {
@@ -75,11 +88,11 @@ function getRoleDashboard(role: string): string {
     case "STUDENT":
       return "/student/dashboard";
     case "ACADEMICIAN":
-      return "/academician/dashboard";
+      return "/faculty/dashboard";
     case "INDUSTRY":
       return "/industry/dashboard";
     case "ADMIN":
-      return "/admin/dashboard";
+      return "/institution/dashboard";
     default:
       return "/";
   }
@@ -89,6 +102,8 @@ export const config = {
   matcher: [
     "/student/:path*",
     "/academician/:path*",
+    "/faculty/:path*",
+    "/institution/:path*",
     "/industry/:path*",
     "/admin/:path*",
     "/login",

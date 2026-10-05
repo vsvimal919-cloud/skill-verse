@@ -115,6 +115,16 @@ export function Navbar({ user }: NavbarProps) {
                   >
                     Coding Assessment
                   </Link>
+                  <Link
+                    href="/student/settings"
+                    className={`rounded-lg px-3 py-1.5 transition ${
+                      pathname === "/student/settings"
+                        ? "bg-blue-50 text-blue-700 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                  >
+                    Dept & Mentor
+                  </Link>
                   {user.profileId && (
                     <Link
                       href={`/portfolio/${user.profileId}`}
@@ -127,8 +137,18 @@ export function Navbar({ user }: NavbarProps) {
                 </>
               )}
 
-              {user.role === "ACADEMICIAN" && (
+              {(user.role === "ACADEMICIAN" || user.role === "ADMIN") && (
                 <>
+                  <Link
+                    href="/faculty/dashboard"
+                    className={`rounded-lg px-3 py-1.5 transition ${
+                      pathname === "/faculty/dashboard"
+                        ? "bg-emerald-50 text-emerald-700 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                  >
+                    Faculty Mentorship
+                  </Link>
                   <Link
                     href="/academician/dashboard"
                     className={`rounded-lg px-3 py-1.5 transition ${
@@ -137,7 +157,17 @@ export function Navbar({ user }: NavbarProps) {
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                     }`}
                   >
-                    Student Roster & Verification
+                    Student Roster
+                  </Link>
+                  <Link
+                    href="/institution/dashboard"
+                    className={`rounded-lg px-3 py-1.5 transition ${
+                      pathname === "/institution/dashboard"
+                        ? "bg-indigo-50 text-indigo-700 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                  >
+                    Institution View
                   </Link>
                 </>
               )}

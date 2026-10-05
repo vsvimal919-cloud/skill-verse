@@ -78,6 +78,8 @@ model StudentProfile {
   department           Department               @relation(fields: [departmentId], references: [id])
   targetRole           JobRole?                 @relation(fields: [targetRoleId], references: [id])
   resumeFile           UploadedFile?            @relation("StudentResume", fields: [resumeFileId], references: [id])
+  mentorId             String?
+  mentor               AcademicianProfile?      @relation("AcademicianMentees", fields: [mentorId], references: [id])
 
   skills               StudentSkill[]
   achievements         StudentAchievement[]
@@ -104,6 +106,7 @@ model AcademicianProfile {
   institution    Institution           @relation(fields: [institutionId], references: [id])
   department     Department            @relation(fields: [departmentId], references: [id])
 
+  mentees        StudentProfile[]      @relation("AcademicianMentees")
   feedbacksGiven AcademicianFeedback[]
   verifiedSkills StudentSkill[]        @relation("AcademicianVerifiedSkill")
 }

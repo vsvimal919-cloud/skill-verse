@@ -18,6 +18,14 @@ export async function GET() {
       department: true,
       targetRole: true,
       resumeFile: true,
+      mentor: {
+        include: {
+          user: {
+            select: { name: true, email: true, avatarUrl: true },
+          },
+          department: true,
+        },
+      },
     },
   });
 
@@ -46,6 +54,8 @@ export async function PUT(req: NextRequest) {
       semester,
       cgpa,
       resumeFileId,
+      departmentId,
+      mentorId,
     } = body;
 
     const updated = await db.studentProfile.update({
@@ -57,15 +67,25 @@ export async function PUT(req: NextRequest) {
         githubUrl,
         portfolioUrl,
         targetRoleId: targetRoleId || undefined,
-        semester: semester ? Number(semester) : undefined,
-        cgpa: cgpa ? Number(cgpa) : undefined,
+        semester: semester !== undefined ? Number(semester) : undefined,
+        cgpa: cgpa !== undefined ? Number(cgpa) : undefined,
         resumeFileId: resumeFileId || undefined,
+        departmentId: departmentId || undefined,
+        mentorId: mentorId !== undefined ? (mentorId ? mentorId : null) : undefined,
       },
       include: {
         targetRole: true,
         institution: true,
         department: true,
         resumeFile: true,
+        mentor: {
+          include: {
+            user: {
+              select: { name: true, email: true, avatarUrl: true },
+            },
+            department: true,
+          },
+        },
       },
     });
 
