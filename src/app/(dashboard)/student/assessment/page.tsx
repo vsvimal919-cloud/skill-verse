@@ -77,6 +77,8 @@ function AssessmentInner() {
   const [isSubmittingFinal, setIsSubmittingFinal] = useState(false);
   const [finalResult, setFinalResult] = useState<any>(null);
 
+  const isCertificateMode = Boolean(achievementId);
+
   // Map skillParam to matching diagnostic assessment ID
   const matchedAssessmentId = useMemo(() => {
     if (!skillParam) return null;
@@ -99,9 +101,25 @@ function AssessmentInner() {
         if (profJson.success) setProfile(profJson.profile);
         if (assessJson.success && assessJson.assessments.length > 0) {
           setAssessments(assessJson.assessments);
-          const initialId = matchedAssessmentId || assessJson.assessments[0].id;
-          loadAssessmentDetails(initialId);
         }
+
+        // If certificate verification or custom name/skill is requested, load dynamic assessment directly
+        if (isCertificateMode || certificateName || (skillParam && !matchedAssessmentId)) {
+          const query = new URLSearchParams();
+          if (certificateName) query.set("name", certificateName);
+          if (skillParam) query.set("skill", skillParam);
+          if (achievementId) query.set("achievementId", achievementId);
+          const res = await fetch(`/api/assessments?${query.toString()}`);
+          const json = await res.json();
+          if (json.success && json.assessment) {
+            setAssessment(json.assessment);
+            setSelectedAssessmentId(json.assessment.id);
+            return;
+          }
+        }
+
+        const initialId = matchedAssessmentId || assessJson.assessments?.[0]?.id || "python-diagnostic";
+        loadAssessmentDetails(initialId);
       } catch (err) {
         console.error("Failed to load assessments", err);
       } finally {
@@ -109,7 +127,7 @@ function AssessmentInner() {
       }
     }
     loadInitialData();
-  }, [matchedAssessmentId]);
+  }, [matchedAssessmentId, isCertificateMode, certificateName, skillParam, achievementId]);
 
   const loadAssessmentDetails = async (id: string) => {
     try {
@@ -127,10 +145,12 @@ function AssessmentInner() {
         setTestStats(null);
         setFinalResult(null);
 
-        // Set default starter code for this assessment
-        const defaultLang = json.assessment.slug === "cpp" ? "cpp" : json.assessment.slug === "javascript" ? "javascript" : "python";
-        setSelectedLang(defaultLang as any);
-        setCode(json.assessment.codingChallenge.starterCode[defaultLang] || "");
+        // Set default starter code for this assessment if codingChallenge exists
+        if (json.assessment.codingChallenge?.starterCode) {
+          const defaultLang = json.assessment.slug === "cpp" ? "cpp" : json.assessment.slug === "javascript" ? "javascript" : "python";
+          setSelectedLang(defaultLang as any);
+          setCode(json.assessment.codingChallenge.starterCode[defaultLang] || "");
+        }
       }
     } catch (err) {
       console.error("Failed to load assessment details", err);
@@ -236,28 +256,32 @@ function AssessmentInner() {
 
   // Calculate MCQ score
   const mcqScore = useMemo(() => {
-    if (!assessment?.mcqQuestions) return 0;
+    if (!assessment?.mcqQuestions || assessment.mcqQuestions.length === 0) return 0;
     let correct = 0;
     assessment.mcqQuestions.forEach((q: any) => {
       if (selectedAnswers[q.id] === q.correctIndex) {
         correct++;
       }
     });
-    return Math.round((correct / assessment.mcqQuestions.length) * 50); // 50 marks for MCQ
-  }, [selectedAnswers, assessment]);
+    // In Certificate Verification mode: MCQ carries 100 marks (20 marks each for 5 questions)
+    // In Standalone Diagnostic mode: MCQ carries 50 marks (10 marks each for 5 questions)
+    const maxMcqWeight = isCertificateMode ? 100 : 50;
+    return Math.round((correct / assessment.mcqQuestions.length) * maxMcqWeight);
+  }, [selectedAnswers, assessment, isCertificateMode]);
 
   // Calculate Coding score
   const codingScore = useMemo(() => {
+    if (isCertificateMode) return 0;
     if (!testStats || testStats.total === 0) return 0;
     return Math.round((testStats.passed / testStats.total) * 50); // 50 marks for Coding
-  }, [testStats]);
+  }, [testStats, isCertificateMode]);
 
-  const totalScore = mcqScore + codingScore;
+  const totalScore = isCertificateMode ? mcqScore : mcqScore + codingScore;
   const isPassed = totalScore >= 60;
 
   // Final submit handler — updates both skill and achievement in PostgreSQL
   const handleFinalSubmit = async () => {
-    if (!testStats) {
+    if (!isCertificateMode && !testStats) {
       const confirmSubmitWithoutTests = confirm(
         "You haven't run the automated test cases yet. Running them provides up to 50 marks for the coding challenge. Do you want to submit anyway?"
       );
@@ -398,19 +422,21 @@ function AssessmentInner() {
                 }`}
               >
                 <HelpCircle className="h-3.5 w-3.5" />
-                1. MCQ Section
+                {isCertificateMode ? "Verification MCQs" : "1. MCQ Section"}
               </button>
-              <button
-                onClick={() => setCurrentStep("coding")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  currentStep === "coding"
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <FileCode className="h-3.5 w-3.5" />
-                2. Live Coding Playground
-              </button>
+              {!isCertificateMode && (
+                <button
+                  onClick={() => setCurrentStep("coding")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                    currentStep === "coding"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <FileCode className="h-3.5 w-3.5" />
+                  2. Live Coding Playground
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -425,10 +451,14 @@ function AssessmentInner() {
                 <div>
                   <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-blue-400" />
-                    Section 1: Conceptual Diagnostic MCQs
+                    {isCertificateMode
+                      ? "Credential Verification: Conceptual Assessment"
+                      : "Section 1: Conceptual Diagnostic MCQs"}
                   </h2>
                   <p className="text-xs text-slate-400 mt-1">
-                    Answer these 5 conceptual questions. Total Weight: 50 Marks (10 marks each).
+                    {isCertificateMode
+                      ? "Answer these 5 conceptual questions tailored to your achievement domain. Total Weight: 100 Marks (20 marks each). Passing: ≥ 60%."
+                      : "Answer these 5 conceptual questions. Total Weight: 50 Marks (10 marks each)."}
                   </p>
                 </div>
                 <div className="text-right">
@@ -531,20 +561,35 @@ function AssessmentInner() {
                   Check Answers
                 </button>
 
-                <button
-                  onClick={() => setCurrentStep("coding")}
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition flex items-center gap-2"
-                >
-                  Proceed to Live Coding Challenge
-                  <ArrowRight className="h-4 w-4" />
-                </button>
+                {isCertificateMode ? (
+                  <button
+                    onClick={handleFinalSubmit}
+                    disabled={isSubmittingFinal}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isSubmittingFinal ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    Submit Assessment & Verify in PostgreSQL
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setCurrentStep("coding")}
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition flex items-center gap-2"
+                  >
+                    Proceed to Live Coding Challenge
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
 
         {/* ================= STEP 2: LIVE CODING PLAYGROUND ================= */}
-        {currentStep === "coding" && (
+        {currentStep === "coding" && !isCertificateMode && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Left Column: Problem Description & Test Cases (5 Cols) */}
             <div className="lg:col-span-5 space-y-5">
@@ -941,15 +986,23 @@ function AssessmentInner() {
               )}
 
               {/* Score Breakdown Grid */}
-              <div className="grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-950 border border-slate-800/80">
+              <div
+                className={`grid ${
+                  isCertificateMode ? "grid-cols-2" : "grid-cols-3"
+                } gap-3 p-4 rounded-2xl bg-slate-950 border border-slate-800/80`}
+              >
                 <div className="p-3">
                   <span className="text-[10px] uppercase font-bold text-slate-500 block">MCQ Score</span>
-                  <span className="text-xl font-black text-blue-400">{mcqScore} / 50</span>
+                  <span className="text-xl font-black text-blue-400">
+                    {mcqScore} / {isCertificateMode ? 100 : 50}
+                  </span>
                 </div>
-                <div className="p-3 border-x border-slate-800">
-                  <span className="text-[10px] uppercase font-bold text-slate-500 block">Coding Score</span>
-                  <span className="text-xl font-black text-emerald-400">{codingScore} / 50</span>
-                </div>
+                {!isCertificateMode && (
+                  <div className="p-3 border-x border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block">Coding Score</span>
+                    <span className="text-xl font-black text-emerald-400">{codingScore} / 50</span>
+                  </div>
+                )}
                 <div className="p-3">
                   <span className="text-[10px] uppercase font-bold text-slate-500 block">Total Marks</span>
                   <span className="text-xl font-black text-white">{totalScore} / 100</span>

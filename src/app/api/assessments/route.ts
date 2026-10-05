@@ -535,23 +535,36 @@ solve();
   },
 ];
 
-// GET: Returns list of available assessments or single assessment by ?id=
+import { resolveUniversalAssessment } from "@/lib/assessmentGenerator";
+
+// GET: Returns list of available assessments, or dynamically generated assessment by ?topic= or ?name= or ?id=
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const assessmentId = searchParams.get("id");
+    const nameParam = searchParams.get("name") || "";
+    const skillParam = searchParams.get("skill") || "";
+    const topicParam = searchParams.get("topic") || "";
+
+    const candidateTopic = nameParam || topicParam || (skillParam && !["python", "javascript", "cpp", "c++", "c"].includes(skillParam.toLowerCase()) ? skillParam : "");
+
+    // If an arbitrary certificate/event name is provided, generate a fully generic assessment
+    if (candidateTopic) {
+      const generated = resolveUniversalAssessment(candidateTopic, skillParam);
+      return NextResponse.json({ success: true, assessment: generated });
+    }
 
     if (assessmentId) {
       const found = DIAGNOSTIC_ASSESSMENTS.find(
         (a) => a.id === assessmentId || a.slug === assessmentId
       );
-      if (!found) {
-        return NextResponse.json(
-          { success: false, error: "Assessment not found" },
-          { status: 404 }
-        );
+      if (found) {
+        return NextResponse.json({ success: true, assessment: found });
       }
-      return NextResponse.json({ success: true, assessment: found });
+
+      // If id is not one of the pre-baked ones, synthesize dynamically
+      const generated = resolveUniversalAssessment(assessmentId, skillParam);
+      return NextResponse.json({ success: true, assessment: generated });
     }
 
     return NextResponse.json({
@@ -611,7 +624,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Upsert SkillAssessment in DB if it doesn't exist yet
-    const assessmentData = DIAGNOSTIC_ASSESSMENTS.find((a) => a.id === assessmentId);
+    let assessmentData: any = DIAGNOSTIC_ASSESSMENTS.find((a) => a.id === assessmentId);
+    if (!assessmentData && assessmentId) {
+      assessmentData = resolveUniversalAssessment(assessmentId);
+    }
+
     let dbAssessment = await db.skillAssessment.findFirst({
       where: { id: assessmentId },
     });
@@ -644,7 +661,7 @@ export async function POST(req: NextRequest) {
           id: assessmentData.id,
           title: assessmentData.title,
           skillId: skill.id,
-          totalMarks: assessmentData.totalMarks,
+          totalMarks: assessmentData.totalMarks || 100,
           passingMarks: 60,
           questionsJson: JSON.stringify(assessmentData.mcqQuestions),
         },
