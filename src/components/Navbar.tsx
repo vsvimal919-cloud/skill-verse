@@ -179,16 +179,6 @@ export function Navbar({ user }: NavbarProps) {
                   >
                     Opportunities & FDP Hub
                   </Link>
-                  <Link
-                    href="/institution/dashboard"
-                    className={`rounded-lg px-3 py-1.5 transition ${
-                      pathname === "/institution/dashboard"
-                        ? "bg-indigo-50 text-indigo-700 font-bold"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                    }`}
-                  >
-                    Institution View
-                  </Link>
                 </>
               )}
 
