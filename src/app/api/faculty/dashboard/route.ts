@@ -89,7 +89,13 @@ export async function GET(req: NextRequest) {
         skills: {
           include: { skill: true },
         },
-        achievements: true,
+        achievements: {
+          include: {
+            certificateFile: true,
+            proofPhotoFile: true,
+          },
+          orderBy: { eventDate: "desc" },
+        },
       },
       orderBy: { careerReadinessScore: "desc" },
     });

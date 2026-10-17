@@ -160,6 +160,16 @@ export function Navbar({ user }: NavbarProps) {
                     Student Roster
                   </Link>
                   <Link
+                    href="/faculty/development"
+                    className={`rounded-lg px-3 py-1.5 transition ${
+                      pathname === "/faculty/development"
+                        ? "bg-emerald-50 text-emerald-700 font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                  >
+                    My FDPs & Research
+                  </Link>
+                  <Link
                     href="/institution/dashboard"
                     className={`rounded-lg px-3 py-1.5 transition ${
                       pathname === "/institution/dashboard"

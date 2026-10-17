@@ -109,6 +109,7 @@ model AcademicianProfile {
   mentees        StudentProfile[]      @relation("AcademicianMentees")
   feedbacksGiven AcademicianFeedback[]
   verifiedSkills StudentSkill[]        @relation("AcademicianVerifiedSkill")
+  developments   FacultyDevelopment[]
 }
 
 model IndustryProfile {
@@ -421,4 +422,24 @@ model StudentSkillGapSnapshot {
 
   student            StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
   targetRole         JobRole        @relation(fields: [targetRoleId], references: [id], onDelete: Cascade)
+}
+
+model FacultyDevelopment {
+  id                 String             @id @default(uuid())
+  facultyId          String
+  type               String             // "FDP" | "WORKSHOP" | "RESEARCH_PAPER" | "PATENT" | "NPTEL_SWAYAM" | "GUEST_LECTURE"
+  title              String
+  organizer          String
+  startDate          DateTime
+  endDate            DateTime?
+  durationDays       Int                @default(1)
+  scoreCreditPoints  Float              @default(0)
+  certUrl            String?
+  publicationDoi     String?
+  description        String?
+  status             String             @default("COMPLETED") // "COMPLETED" | "ONGOING"
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  faculty            AcademicianProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 }
