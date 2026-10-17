@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       where: { userId: session.userId },
       include: {
         developments: true,
+        user: { select: { name: true, email: true } },
       },
     });
 
@@ -48,6 +49,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      faculty: academician,
       opportunities: items,
       totalCount: items.length,
     });

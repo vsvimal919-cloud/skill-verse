@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 export default function FacultyOpportunitiesPage() {
+  const [faculty, setFaculty] = useState<any>(null);
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -48,6 +49,7 @@ export default function FacultyOpportunitiesPage() {
       const res = await fetch(`/api/faculty/opportunities?${params.toString()}`);
       const json = await res.json();
       if (json.success) {
+        if (json.faculty) setFaculty(json.faculty);
         setOpportunities(json.opportunities || []);
       }
     } catch (e) {
@@ -104,8 +106,8 @@ export default function FacultyOpportunitiesPage() {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar
         user={{
-          name: "Faculty Member",
-          email: "",
+          name: faculty?.user?.name || "Faculty Member",
+          email: faculty?.user?.email || "",
           role: "ACADEMICIAN",
         }}
       />
